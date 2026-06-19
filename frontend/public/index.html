@@ -5,14 +5,806 @@
   <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#1a1a2e" />
-  <meta name="description" content="Générateur de donjon procédural" />
+  <meta name="description" content="Générateur de donjon procédural - Application React" />
   <title>🏰 Générateur de Donjon</title>
 </head>
 <body>
   <noscript>Vous devez activer JavaScript pour utiliser cette application.</noscript>
   <div id="root"></div>
-  
-  <!-- Charger la version IIFE de la bibliothèque -->
-  <script src="%PUBLIC_URL%/dungeon-generator.iife.js"></script>
+
+  <!-- ============================================================
+  BIBLIOTHÈQUE DUNGEON GENERATOR - Version inline
+  ============================================================ -->
+  <script>
+    /**
+     * DungeonGenerator - Version complète inline
+     * Intégration directe pour éviter les problèmes de modules ES6
+     */
+    (function(global) {
+      'use strict';
+
+      // ============================================================
+      // CLASSE PRINCIPALE
+      // ============================================================
+
+      class DungeonGenerator {
+        constructor(options = {}) {
+          // Options
+          this.container = options.container || document.body;
+          this.tileSize = options.tileSize || 32;
+          this.width = options.width || 50;
+          this.height = options.height || 40;
+          this.customTileTypes = options.customTileTypes || [];
+          
+          // États
+          this.layers = {};
+          this.annotations = [];
+          this.history = [];
+          this.historyIndex = -1;
+          this.scaleVisible = false;
+          this.scaleUnit = 'm';
+          this.scalePixelsPerUnit = 10;
+          this.generators = {};
+          this.isRendering = false;
+          
+          // Registre des tuiles
+          this.tileRegistry = {
+            floor: { color: '#2d3436', label: 'Sol', icon: '' },
+            wall: { color: '#636e72', label: 'Mur', icon: '' },
+            corridor: { color: '#4a4a4a', label: 'Couloir', icon: '' },
+            room: { color: '#3d3d3d', label: 'Salle', icon: '' }
+          };
+          
+          // Ajouter les tuiles personnalisées
+          this.customTileTypes.forEach(tile => {
+            this.tileRegistry[tile.id] = {
+              color: tile.color,
+              label: tile.label,
+              icon: tile.icon || ''
+            };
+          });
+          
+          // Enregistrer les générateurs par défaut
+          this.registerDefaultGenerators();
+          
+          // Initialiser le SVG
+          this.setupContainer();
+          
+          // Générer un donjon par défaut
+          this.generate('rooms', { numRooms: 8, minRoomSize: 3, maxRoomSize: 6 });
+        }
+
+        // ============================================================
+        // INITIALISATION
+        // ============================================================
+
+        setupContainer() {
+          if (!this.container) {
+            console.error('❌ Container non défini');
+            return;
+          }
+          
+          // Vider le conteneur
+          this.container.innerHTML = '';
+          
+          // Créer le SVG
+          this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          this.svg.setAttribute('width', this.width * this.tileSize);
+          this.svg.setAttribute('height', this.height * this.tileSize);
+          this.svg.setAttribute('viewBox', `0 0 ${this.width * this.tileSize} ${this.height * this.tileSize}`);
+          this.svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+          this.svg.style.backgroundColor = '#1a1a2e';
+          this.svg.style.width = '100%';
+          this.svg.style.height = 'auto';
+          this.svg.style.borderRadius = '8px';
+          
+          this.container.appendChild(this.svg);
+          console.log('✅ Container SVG créé');
+        }
+
+        registerDefaultGenerators() {
+          this.registerGenerator('rooms', this.generateRooms.bind(this));
+          this.registerGenerator('bsp', this.generateBSP.bind(this));
+          this.registerGenerator('sinuous', this.generateSinuous.bind(this));
+          this.registerGenerator('cellular', this.generateCellular.bind(this));
+          this.registerGenerator('drunkard', this.generateDrunkard.bind(this));
+          this.registerGenerator('dla', this.generateDLA.bind(this));
+          this.registerGenerator('dla-symmetry', this.generateDLASymmetry.bind(this));
+        }
+
+        registerGenerator(name, generatorFn) {
+          this.generators[name] = generatorFn;
+        }
+
+        // ============================================================
+        // GÉNÉRATION PRINCIPALE
+        // ============================================================
+
+        generate(algorithm, params = {}, keepAnnotations = false) {
+          if (this.isRendering) return;
+          
+          // Sauvegarder l'état actuel
+          this.saveState();
+          
+          // Nettoyer les calques (optionnellement garder les annotations)
+          this.layers = {};
+          if (!keepAnnotations) {
+            this.annotations = [];
+          }
+          
+          // Vider le SVG
+          this.svg.innerHTML = '';
+          
+          // Appeler le générateur approprié
+          const generator = this.generators[algorithm];
+          if (generator) {
+            generator(params);
+          } else {
+            console.warn(`⚠️ Algorithme "${algorithm}" non trouvé, utilisation de "rooms"`);
+            this.generators['rooms'](params);
+          }
+          
+          // Rendre le résultat
+          this.render();
+        }
+
+        // ============================================================
+        // ALGORITHMES DE GÉNÉRATION
+        // ============================================================
+
+        // 1. Salles + couloirs en L
+        generateRooms(params) {
+          const numRooms = params?.numRooms || 10;
+          const minSize = params?.minRoomSize || 3;
+          const maxSize = params?.maxRoomSize || 6;
+          
+          const rooms = [];
+          
+          for (let i = 0; i < numRooms; i++) {
+            const width = Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize;
+            const height = Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize;
+            const x = Math.floor(Math.random() * (this.width - width - 2)) + 1;
+            const y = Math.floor(Math.random() * (this.height - height - 2)) + 1;
+            
+            rooms.push({ x, y, width, height });
+            
+            for (let dy = 0; dy < height; dy++) {
+              for (let dx = 0; dx < width; dx++) {
+                const isWall = dy === 0 || dy === height - 1 || dx === 0 || dx === width - 1;
+                const tileType = isWall ? 'wall' : 'floor';
+                this.addTile('main', tileType, x + dx, y + dy);
+              }
+            }
+          }
+          
+          // Relier les salles par des couloirs en L
+          for (let i = 0; i < rooms.length - 1; i++) {
+            const r1 = rooms[i];
+            const r2 = rooms[i + 1];
+            const x1 = r1.x + Math.floor(r1.width / 2);
+            const y1 = r1.y + Math.floor(r1.height / 2);
+            const x2 = r2.x + Math.floor(r2.width / 2);
+            const y2 = r2.y + Math.floor(r2.height / 2);
+            
+            const minX = Math.min(x1, x2);
+            const maxX = Math.max(x1, x2);
+            const minY = Math.min(y1, y2);
+            const maxY = Math.max(y1, y2);
+            
+            // Couloir horizontal
+            for (let x = minX; x <= maxX; x++) {
+              this.addTile('main', 'corridor', x, y1);
+            }
+            // Couloir vertical
+            for (let y = minY; y <= maxY; y++) {
+              this.addTile('main', 'corridor', x2, y);
+            }
+          }
+        }
+
+        // 2. BSP
+        generateBSP(params) {
+          const minSize = params?.minRoomSize || 3;
+          const maxSize = params?.maxRoomSize || 6;
+          const maxDepth = params?.maxDepth || 4;
+          
+          const rooms = [];
+          this.splitRoom(0, 0, this.width, this.height, 0, maxDepth, minSize, maxSize, rooms);
+          
+          rooms.forEach(room => {
+            for (let dy = 0; dy < room.height; dy++) {
+              for (let dx = 0; dx < room.width; dx++) {
+                const isWall = dy === 0 || dy === room.height - 1 || dx === 0 || dx === room.width - 1;
+                const tileType = isWall ? 'wall' : 'floor';
+                this.addTile('main', tileType, room.x + dx, room.y + dy);
+              }
+            }
+          });
+        }
+
+        splitRoom(x, y, w, h, depth, maxDepth, minSize, maxSize, rooms) {
+          if (depth >= maxDepth || w < minSize * 2 || h < minSize * 2) {
+            const roomW = Math.min(w - 2, Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize);
+            const roomH = Math.min(h - 2, Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize);
+            const roomX = x + Math.floor((w - roomW) / 2);
+            const roomY = y + Math.floor((h - roomH) / 2);
+            if (roomW > 0 && roomH > 0) {
+              rooms.push({ x: roomX, y: roomY, width: roomW, height: roomH });
+            }
+            return;
+          }
+          
+          if (w > h) {
+            const splitX = x + Math.floor(w / 2) + (Math.random() > 0.5 ? 1 : -1) * Math.floor(w / 4);
+            this.splitRoom(x, y, splitX - x, h, depth + 1, maxDepth, minSize, maxSize, rooms);
+            this.splitRoom(splitX, y, w - (splitX - x), h, depth + 1, maxDepth, minSize, maxSize, rooms);
+          } else {
+            const splitY = y + Math.floor(h / 2) + (Math.random() > 0.5 ? 1 : -1) * Math.floor(h / 4);
+            this.splitRoom(x, y, w, splitY - y, depth + 1, maxDepth, minSize, maxSize, rooms);
+            this.splitRoom(x, splitY, w, h - (splitY - y), depth + 1, maxDepth, minSize, maxSize, rooms);
+          }
+        }
+
+        // 3. Couloirs sinueux
+        generateSinuous(params) {
+          const steps = params?.steps || 500;
+          const turnProb = params?.turnProbability || 0.3;
+          const roomProb = params?.roomProbability || 0.05;
+          const minSize = params?.minRoomSize || 3;
+          const maxSize = params?.maxRoomSize || 5;
+          
+          let x = Math.floor(this.width / 2);
+          let y = Math.floor(this.height / 2);
+          let dir = 0;
+          
+          for (let i = 0; i < steps; i++) {
+            if (Math.random() < turnProb) {
+              dir = (dir + (Math.random() > 0.5 ? 1 : 3)) % 4;
+            }
+            
+            switch(dir) {
+              case 0: x++; break;
+              case 1: y++; break;
+              case 2: x--; break;
+              case 3: y--; break;
+            }
+            
+            x = Math.max(1, Math.min(this.width - 2, x));
+            y = Math.max(1, Math.min(this.height - 2, y));
+            
+            this.addTile('main', 'corridor', x, y);
+            
+            if (Math.random() < roomProb) {
+              const roomW = Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize;
+              const roomH = Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize;
+              const rx = Math.max(1, Math.min(this.width - roomW - 1, x - Math.floor(roomW / 2)));
+              const ry = Math.max(1, Math.min(this.height - roomH - 1, y - Math.floor(roomH / 2)));
+              
+              for (let dy = 0; dy < roomH; dy++) {
+                for (let dx = 0; dx < roomW; dx++) {
+                  const isWall = dy === 0 || dy === roomH - 1 || dx === 0 || dx === roomW - 1;
+                  const tileType = isWall ? 'wall' : 'floor';
+                  this.addTile('main', tileType, rx + dx, ry + dy);
+                }
+              }
+            }
+          }
+        }
+
+        // 4. Automates cellulaires
+        generateCellular(params) {
+          const density = params?.density || 0.45;
+          const iterations = params?.iterations || 5;
+          const birthLimit = params?.birthLimit || 4;
+          const deathLimit = params?.deathLimit || 3;
+          
+          let grid = [];
+          for (let y = 0; y < this.height; y++) {
+            grid[y] = [];
+            for (let x = 0; x < this.width; x++) {
+              grid[y][x] = Math.random() < density ? 1 : 0;
+            }
+          }
+          
+          for (let iter = 0; iter < iterations; iter++) {
+            const newGrid = [];
+            for (let y = 0; y < this.height; y++) {
+              newGrid[y] = [];
+              for (let x = 0; x < this.width; x++) {
+                const neighbors = this.countNeighbors(grid, x, y);
+                if (grid[y][x] === 1) {
+                  newGrid[y][x] = neighbors < deathLimit ? 0 : 1;
+                } else {
+                  newGrid[y][x] = neighbors > birthLimit ? 1 : 0;
+                }
+              }
+            }
+            grid = newGrid;
+          }
+          
+          for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+              if (grid[y][x] === 1) {
+                this.addTile('main', 'wall', x, y);
+              } else {
+                this.addTile('main', 'floor', x, y);
+              }
+            }
+          }
+        }
+
+        countNeighbors(grid, x, y) {
+          let count = 0;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              const nx = x + dx;
+              const ny = y + dy;
+              if (nx >= 0 && nx < this.width && ny >= 0 && ny < this.height && grid[ny][nx] === 1) {
+                count++;
+              }
+            }
+          }
+          return count;
+        }
+
+        // 5. Drunkard's Walk
+        generateDrunkard(params) {
+          const steps = params?.steps || 200;
+          const walkers = params?.walkers || 5;
+          const roomChance = params?.roomChance || 0.04;
+          
+          for (let w = 0; w < walkers; w++) {
+            let x = Math.floor(Math.random() * this.width);
+            let y = Math.floor(Math.random() * this.height);
+            
+            for (let i = 0; i < steps; i++) {
+              const dir = Math.floor(Math.random() * 4);
+              switch(dir) {
+                case 0: x++; break;
+                case 1: y++; break;
+                case 2: x--; break;
+                case 3: y--; break;
+              }
+              
+              x = Math.max(1, Math.min(this.width - 2, x));
+              y = Math.max(1, Math.min(this.height - 2, y));
+              
+              this.addTile('main', 'corridor', x, y);
+              
+              if (Math.random() < roomChance) {
+                const size = Math.floor(Math.random() * 3) + 2;
+                for (let dy = 0; dy < size; dy++) {
+                  for (let dx = 0; dx < size; dx++) {
+                    const isWall = dy === 0 || dy === size - 1 || dx === 0 || dx === size - 1;
+                    const tileType = isWall ? 'wall' : 'floor';
+                    this.addTile('main', tileType, x + dx, y + dy);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // 6. DLA Central Attractor
+        generateDLA(params) {
+          const particles = params?.particles || 150;
+          const radius = params?.radius || 2;
+          const spawnRadius = params?.spawnRadius || 12;
+          
+          const centerX = Math.floor(this.width / 2);
+          const centerY = Math.floor(this.height / 2);
+          
+          this.addTile('main', 'wall', centerX, centerY);
+          
+          for (let p = 0; p < particles; p++) {
+            let x, y;
+            let attempts = 0;
+            let placed = false;
+            
+            while (!placed && attempts < 1000) {
+              const angle = Math.random() * 2 * Math.PI;
+              const dist = Math.random() * spawnRadius + 1;
+              x = Math.round(centerX + Math.cos(angle) * dist);
+              y = Math.round(centerY + Math.sin(angle) * dist);
+              
+              x = Math.max(1, Math.min(this.width - 2, x));
+              y = Math.max(1, Math.min(this.height - 2, y));
+              
+              let found = false;
+              for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                  if (dx === 0 && dy === 0) continue;
+                  const nx = x + dx;
+                  const ny = y + dy;
+                  if (nx >= 0 && nx < this.width && ny >= 0 && ny < this.height) {
+                    const tile = this.getTileAt('main', nx, ny);
+                    if (tile === 'wall' || tile === 'corridor') {
+                      found = true;
+                      break;
+                    }
+                  }
+                }
+                if (found) break;
+              }
+              
+              if (found) {
+                this.addTile('main', 'wall', x, y);
+                placed = true;
+              }
+              attempts++;
+            }
+          }
+        }
+
+        // 7. DLA Symmetry
+        generateDLASymmetry(params) {
+          const symmetry = params?.symmetry || 'both';
+          const particles = params?.particles || 150;
+          const radius = params?.radius || 2;
+          const spawnRadius = params?.spawnRadius || 12;
+          
+          const centerX = Math.floor(this.width / 2);
+          const centerY = Math.floor(this.height / 2);
+          
+          this.addTile('main', 'wall', centerX, centerY);
+          
+          for (let p = 0; p < particles; p++) {
+            let x, y;
+            let attempts = 0;
+            let placed = false;
+            
+            while (!placed && attempts < 1000) {
+              const angle = Math.random() * 2 * Math.PI;
+              const dist = Math.random() * spawnRadius + 1;
+              x = Math.round(centerX + Math.cos(angle) * dist);
+              y = Math.round(centerY + Math.sin(angle) * dist);
+              
+              x = Math.max(1, Math.min(this.width - 2, x));
+              y = Math.max(1, Math.min(this.height - 2, y));
+              
+              let found = false;
+              for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                  if (dx === 0 && dy === 0) continue;
+                  const nx = x + dx;
+                  const ny = y + dy;
+                  if (nx >= 0 && nx < this.width && ny >= 0 && ny < this.height) {
+                    const tile = this.getTileAt('main', nx, ny);
+                    if (tile === 'wall' || tile === 'corridor') {
+                      found = true;
+                      break;
+                    }
+                  }
+                }
+                if (found) break;
+              }
+              
+              if (found) {
+                this.addTile('main', 'wall', x, y);
+                
+                const symX = (symmetry === 'x' || symmetry === 'both') ? this.width - 1 - x : x;
+                const symY = (symmetry === 'y' || symmetry === 'both') ? this.height - 1 - y : y;
+                
+                if (symX !== x || symY !== y) {
+                  this.addTile('main', 'wall', symX, symY);
+                }
+                
+                placed = true;
+              }
+              attempts++;
+            }
+          }
+        }
+
+        // ============================================================
+        // MÉTHODES UTILITAIRES
+        // ============================================================
+
+        addTile(layerName, tileType, x, y, props = {}) {
+          if (!this.layers[layerName]) {
+            this.layers[layerName] = [];
+          }
+          this.layers[layerName].push({ tileType, x, y, props });
+        }
+
+        getTileAt(layerName, x, y) {
+          if (!this.layers[layerName]) return null;
+          for (const tile of this.layers[layerName]) {
+            if (tile.x === x && tile.y === y) {
+              return tile.tileType;
+            }
+          }
+          return null;
+        }
+
+        addAnnotation(x, y, text, color = '#ffd700', fontSize = 14) {
+          this.annotations.push({ x, y, text, color, fontSize });
+          this.render();
+        }
+
+        addLayer(name, visible = true) {
+          this.layers[name] = [];
+        }
+
+        setScale(visible, unit = 'm', pixelsPerUnit = 10) {
+          this.scaleVisible = visible;
+          this.scaleUnit = unit;
+          this.scalePixelsPerUnit = pixelsPerUnit;
+          this.render();
+        }
+
+        // ============================================================
+        // RENDU
+        // ============================================================
+
+        render() {
+          if (!this.svg || this.isRendering) return;
+          
+          this.isRendering = true;
+          
+          try {
+            this.svg.innerHTML = '';
+            
+            // Dessiner les tuiles
+            for (const layerName in this.layers) {
+              for (const tile of this.layers[layerName]) {
+                const tileDef = this.tileRegistry[tile.tileType];
+                if (!tileDef) continue;
+                
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', tile.x * this.tileSize);
+                rect.setAttribute('y', tile.y * this.tileSize);
+                rect.setAttribute('width', this.tileSize);
+                rect.setAttribute('height', this.tileSize);
+                rect.setAttribute('fill', tileDef.color || '#333');
+                rect.setAttribute('stroke', '#1a1a2e');
+                rect.setAttribute('stroke-width', '0.5');
+                this.svg.appendChild(rect);
+                
+                if (tileDef.icon) {
+                  const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                  text.setAttribute('x', tile.x * this.tileSize + this.tileSize / 2);
+                  text.setAttribute('y', tile.y * this.tileSize + this.tileSize / 2 + 4);
+                  text.setAttribute('text-anchor', 'middle');
+                  text.setAttribute('font-size', this.tileSize * 0.6);
+                  text.setAttribute('pointer-events', 'none');
+                  text.textContent = tileDef.icon;
+                  this.svg.appendChild(text);
+                }
+              }
+            }
+            
+            // Dessiner les annotations
+            for (const ann of this.annotations) {
+              const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+              text.setAttribute('x', ann.x * this.tileSize);
+              text.setAttribute('y', ann.y * this.tileSize - 5);
+              text.setAttribute('fill', ann.color || '#ffd700');
+              text.setAttribute('font-size', ann.fontSize || 14);
+              text.setAttribute('font-weight', 'bold');
+              text.setAttribute('pointer-events', 'none');
+              text.textContent = ann.text;
+              this.svg.appendChild(text);
+            }
+            
+            // Barre d'échelle
+            if (this.scaleVisible) {
+              this.drawScale();
+            }
+            
+          } finally {
+            this.isRendering = false;
+          }
+        }
+
+        drawScale() {
+          const width = this.width * this.tileSize;
+          const height = this.height * this.tileSize;
+          
+          const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          group.setAttribute('pointer-events', 'none');
+          
+          const barX = 20;
+          const barY = height - 30;
+          const barWidth = 100;
+          
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', barX);
+          rect.setAttribute('y', barY);
+          rect.setAttribute('width', barWidth);
+          rect.setAttribute('height', 4);
+          rect.setAttribute('fill', '#ffffff');
+          rect.setAttribute('opacity', '0.5');
+          group.appendChild(rect);
+          
+          const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line1.setAttribute('x1', barX);
+          line1.setAttribute('y1', barY - 5);
+          line1.setAttribute('x2', barX);
+          line1.setAttribute('y2', barY + 9);
+          line1.setAttribute('stroke', '#ffffff');
+          line1.setAttribute('stroke-width', '2');
+          line1.setAttribute('opacity', '0.5');
+          group.appendChild(line1);
+          
+          const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line2.setAttribute('x1', barX + barWidth);
+          line2.setAttribute('y1', barY - 5);
+          line2.setAttribute('x2', barX + barWidth);
+          line2.setAttribute('y2', barY + 9);
+          line2.setAttribute('stroke', '#ffffff');
+          line2.setAttribute('stroke-width', '2');
+          line2.setAttribute('opacity', '0.5');
+          group.appendChild(line2);
+          
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.setAttribute('x', barX + barWidth / 2);
+          text.setAttribute('y', barY - 10);
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('fill', '#ffffff');
+          text.setAttribute('font-size', '12');
+          text.setAttribute('opacity', '0.7');
+          text.textContent = `${Math.round(barWidth / this.scalePixelsPerUnit)} ${this.scaleUnit}`;
+          group.appendChild(text);
+          
+          this.svg.appendChild(group);
+        }
+
+        // ============================================================
+        // HISTORIQUE
+        // ============================================================
+
+        saveState() {
+          const state = {
+            layers: JSON.parse(JSON.stringify(this.layers)),
+            annotations: JSON.parse(JSON.stringify(this.annotations))
+          };
+          this.history = this.history.slice(0, this.historyIndex + 1);
+          this.history.push(state);
+          this.historyIndex = this.history.length - 1;
+        }
+
+        restoreState(state) {
+          this.layers = JSON.parse(JSON.stringify(state.layers));
+          this.annotations = JSON.parse(JSON.stringify(state.annotations));
+          this.render();
+        }
+
+        undo() {
+          if (this.historyIndex <= 0) return false;
+          this.historyIndex--;
+          this.restoreState(this.history[this.historyIndex]);
+          return true;
+        }
+
+        redo() {
+          if (this.historyIndex >= this.history.length - 1) return false;
+          this.historyIndex++;
+          this.restoreState(this.history[this.historyIndex]);
+          return true;
+        }
+
+        // ============================================================
+        // EXPORT
+        // ============================================================
+
+        exportSVG(filename = 'donjon.svg') {
+          try {
+            const svgData = new XMLSerializer().serializeToString(this.svg);
+            const blob = new Blob([svgData], { 
+              type: 'image/svg+xml;charset=utf-8' 
+            });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(link.href), 100);
+            return true;
+          } catch (error) {
+            console.error('❌ Erreur export SVG:', error);
+            return false;
+          }
+        }
+
+        exportPNG(filename = 'donjon.png') {
+          try {
+            const svgData = new XMLSerializer().serializeToString(this.svg);
+            const canvas = document.createElement('canvas');
+            const scale = 2;
+            canvas.width = this.width * this.tileSize * scale;
+            canvas.height = this.height * this.tileSize * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(scale, scale);
+            
+            return new Promise((resolve) => {
+              const img = new Image();
+              const svgBlob = new Blob([svgData], { 
+                type: 'image/svg+xml;charset=utf-8' 
+              });
+              const url = URL.createObjectURL(svgBlob);
+              
+              img.onload = () => {
+                ctx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+                
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                resolve(true);
+              };
+              
+              img.onerror = () => {
+                URL.revokeObjectURL(url);
+                resolve(false);
+              };
+              
+              img.src = url;
+            });
+          } catch (error) {
+            console.error('❌ Erreur export PNG:', error);
+            return false;
+          }
+        }
+
+        print() {
+          window.print();
+        }
+
+        getSVGData() {
+          return new XMLSerializer().serializeToString(this.svg);
+        }
+
+        getPNGData() {
+          return new Promise((resolve) => {
+            const svgData = this.getSVGData();
+            const canvas = document.createElement('canvas');
+            const scale = 2;
+            canvas.width = this.width * this.tileSize * scale;
+            canvas.height = this.height * this.tileSize * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(scale, scale);
+            
+            const img = new Image();
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            
+            img.onload = () => {
+              ctx.drawImage(img, 0, 0);
+              URL.revokeObjectURL(url);
+              resolve(canvas.toDataURL('image/png'));
+            };
+            
+            img.onerror = () => {
+              URL.revokeObjectURL(url);
+              resolve(null);
+            };
+            
+            img.src = url;
+          });
+        }
+      }
+
+      // ============================================================
+      // EXPOSITION GLOBALE
+      // ============================================================
+
+      if (typeof window !== 'undefined') {
+        window.DungeonGenerator = DungeonGenerator;
+        console.log('✅ DungeonGenerator chargé avec succès!');
+        console.log(`📦 Version: ${DungeonGenerator.prototype.constructor.name}`);
+      }
+
+      if (typeof module !== 'undefined' && module.exports) {
+        module.exports = DungeonGenerator;
+      }
+
+    })(typeof window !== 'undefined' ? window : this);
+  </script>
 </body>
 </html>
