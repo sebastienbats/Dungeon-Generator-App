@@ -150,31 +150,24 @@
 ### Cloner le projet
 
 ```bash
+# Cloner le dépôt
 git clone https://github.com/sebastienbats/dungeon-generator-app.git
 cd dungeon-generator-app
 ```
 
 ### Installer les dépendances
-
-#### Backend
 ```bash
+# Backend
 cd backend
 npm install
-```
-
-#### Frontend
-```bash
-cd frontend
+# Frontend
+cd ../frontend
 npm install
-```
-
-### Télécharger la bibliothèque de génération
-
-```bash
-cd frontend/public
+# Télécharger la bibliothèque de génération
+cd ./public
 curl -O https://raw.githubusercontent.com/sebastienbats/procedural-dungeon-generator-library/main/dungeon-generator.js
+cd ../../backend
 ```
-
 ### Configurer l'environnement
 
 Créez un fichier `.env` dans le dossier `backend`:
@@ -186,8 +179,6 @@ MAX_FILE_SIZE=10000000
 EXPORT_DIR=./exports
 CORS_ORIGIN=http://localhost:3000
 ```
-
----
 
 ## 🎮 Utilisation
 
