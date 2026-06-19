@@ -173,7 +173,7 @@ MAX_FILE_SIZE=10000000
 EXPORT_DIR=./exports
 CORS_ORIGIN=http://localhost:3000
 ```
-### Conversion IIFE
+### Conversion IIFE (INUTILE)
 ```bash
 # 1. Nettoyer l'installation précédente
 cd ../frontend
