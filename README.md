@@ -150,7 +150,7 @@
 ### Cloner le projet
 
 ```bash
-git clone https://github.com/votre-username/dungeon-generator-app.git
+git clone https://github.com/sebastienbats/dungeon-generator-app.git
 cd dungeon-generator-app
 ```
 
