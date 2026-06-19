@@ -7,6 +7,10 @@
 
 > Une application web complète pour la génération procédurale de donjons avec interface React et backend Node.js
 
+![Dungeon Generator Demo](https://via.placeholder.com/800x400/1a1a2e/f7971e?text=🏰+Dungeon+Generator+App)
+
+---
+
 ## 📖 Table des matières
 
 - [Aperçu](#-aperçu)
@@ -28,39 +32,57 @@
 
 ## 🎯 Aperçu
 
-**Dungeon Generator App** est une application web complète permettant de générer procéduralement des donjons en utilisant la bibliothèque [`procedural-dungeon-generator-library`](https://github.com/sebastienbats/procedural-dungeon-generator-library). L'application offre une interface utilisateur moderne, responsive et intuitive avec un backend Node.js pour la sauvegarde des exports.
+**Dungeon Generator App** est une application web complète permettant de générer procéduralement des donjons en utilisant une bibliothèque intégrée. L'application offre une interface utilisateur moderne, responsive et intuitive avec un backend Node.js pour la sauvegarde des exports.
+
+### ✨ Caractéristiques principales
+
+- **7 algorithmes de génération** intégrés dans la bibliothèque
+- **Interface React** avec hooks personnalisés
+- **Backend Node.js/Express** pour la gestion des exports
+- **Design responsive** adapté à tous les écrans
+- **Export SVG et PNG** avec sauvegarde automatique
 
 ---
 
 ## 🚀 Fonctionnalités
 
 ### 🎮 Gestion des donjons
-- **7 algorithmes de génération** intégrés (salles, BSP, couloirs sinueux, automates cellulaires, Drunkard's Walk, DLA, DLA symétrie)
-- **Paramètres ajustables** pour chaque algorithme avec sliders interactifs
-- **Génération en temps réel** avec feedback visuel et indicateur de chargement
-- **Système d'annotations** pour marquer des points d'intérêt (entrée, trésor, etc.)
-- **Historique complet** avec annulation/rétablissement (undo/redo)
-- **Tuiles personnalisables** avec couleurs et icônes emojis
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **7 algorithmes** | Salles, BSP, couloirs sinueux, automates cellulaires, Drunkard's Walk, DLA, DLA symétrie |
+| **Paramètres ajustables** | Sliders interactifs pour chaque algorithme |
+| **Génération en temps réel** | Feedback visuel et indicateur de chargement |
+| **Annotations** | Marquez des points d'intérêt (entrée, trésor, etc.) |
+| **Historique** | Annulation/rétablissement (undo/redo) complet |
+| **Tuiles personnalisables** | Couleurs et icônes emojis |
 
 ### 📤 Export et partage
-- **Export SVG** - Format vectoriel haute qualité pour une édition ultérieure
-- **Export PNG** - Format image avec support de la transparence
-- **Impression** - Optimisée pour l'impression papier avec mise en page adaptée
-- **Sauvegarde sur serveur** - Export automatique des fichiers sur le backend
-- **Téléchargement local** - Sauvegarde directe sur l'ordinateur de l'utilisateur
-- **Gestion des exports** - Visualisation et suppression des fichiers sauvegardés
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Export SVG** | Format vectoriel haute qualité |
+| **Export PNG** | Format image avec transparence |
+| **Impression** | Optimisée pour l'impression papier |
+| **Sauvegarde serveur** | Export automatique sur le backend |
+| **Téléchargement local** | Sauvegarde directe sur l'ordinateur |
+| **Gestion des exports** | Visualisation et suppression des fichiers |
 
 ### 🎨 Interface utilisateur
-- **Design responsive** - S'adapte parfaitement à tous les écrans (mobile, tablette, desktop)
-- **Thème sombre** moderne et confortable pour une utilisation prolongée
-- **Contrôles intuitifs** avec sliders, sélecteurs et boutons organisés
-- **Feedback visuel** avec messages de statut (succès, erreur, information)
-- **Indicateur de chargement** pour les opérations longues (génération, export)
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Design responsive** | S'adapte à mobile, tablette et desktop |
+| **Thème sombre** | Moderne et confortable |
+| **Contrôles intuitifs** | Sliders, sélecteurs et boutons organisés |
+| **Feedback visuel** | Messages de statut (succès, erreur, info) |
+| **Indicateur de chargement** | Pour les opérations longues |
 
 ### 🔧 Personnalisation avancée
-- **Calques superposés** - Sol, murs, objets, annotations, couloirs
-- **Règles Graph Grammar** - Créez vos propres règles de génération
-- **Salles et couloirs personnalisés** - Types et styles modifiables
+
+- **Calques superposés** - Sol, murs, objets, annotations
+- **Règles Graph Grammar** - Créez vos propres règles
+- **Salles personnalisées** - Types et styles modifiables
 - **Symétries** - Axiale et rotationnelle
 
 ---
@@ -75,14 +97,14 @@
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌──────────────┐    ┌────────────────┐    ┌────────────────┐ │
 │  │    App.js    │───▶│DungeonControls │───▶│  DungeonGenerator│ │
-│  │  (Principal) │    │   (Contrôles)  │    │   (Générateur)  │ │
+│  │  (Principal) │    │   (Contrôles)  │    │   (Hook)        │ │
 │  └──────────────┘    └────────────────┘    └────────────────┘ │
 │         │                                       │              │
 │         ▼                                       ▼              │
 │  ┌──────────────┐                      ┌──────────────────┐   │
 │  │  Status Bar  │                      │  Bibliothèque    │   │
-│  │  (Messages)  │                      │  DungeonGenerator│   │
-│  └──────────────┘                      │  (externe)       │   │
+│  │  (Messages)  │                      │  (Inline dans    │   │
+│  └──────────────┘                      │   index.html)    │   │
 │                                        └──────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -106,18 +128,19 @@
 
 ### Flux de données
 
-1. **Génération**: L'utilisateur sélectionne un algorithme et ajuste ses paramètres
-2. **Traitement**: Le générateur React utilise la bibliothèque DungeonGenerator
-3. **Rendu**: Le SVG est généré et rendu dans le conteneur DOM
-4. **Visualisation**: L'utilisateur peut voir le donjon en temps réel
-5. **Export**: Les données sont exportées en SVG ou PNG
-6. **Sauvegarde**: Le backend sauvegarde les fichiers sur le serveur
+1. **Génération** → L'utilisateur sélectionne un algorithme et ajuste ses paramètres
+2. **Traitement** → Le hook React utilise la bibliothèque DungeonGenerator (inline)
+3. **Rendu** → Le SVG est généré et rendu dans le conteneur DOM
+4. **Visualisation** → L'utilisateur voit le donjon en temps réel
+5. **Export** → Les données sont exportées en SVG ou PNG
+6. **Sauvegarde** → Le backend sauvegarde les fichiers sur le serveur
 
 ---
 
 ## 💻 Technologies utilisées
 
 ### Frontend
+
 | Technologie | Version | Utilisation |
 |-------------|---------|-------------|
 | [React](https://reactjs.org/) | 18.x | Framework UI avec hooks personnalisés |
@@ -126,6 +149,7 @@
 | [ES6 Modules](https://developer.mozilla.org/fr/docs/Web/JavaScript/Guide/Modules) | - | Modularisation du code |
 
 ### Backend
+
 | Technologie | Version | Utilisation |
 |-------------|---------|-------------|
 | [Node.js](https://nodejs.org/) | 18.x | Runtime JavaScript côté serveur |
@@ -134,71 +158,57 @@
 | [CORS](https://github.com/expressjs/cors) | 2.x | Cross-Origin Resource Sharing |
 
 ### Bibliothèques externes
+
 | Bibliothèque | Description |
 |--------------|-------------|
-| [procedural-dungeon-generator-library](https://github.com/sebastienbats/procedural-dungeon-generator-library) | Moteur de génération de donjons sans dépendances |
+| **Dungeon Generator** | Bibliothèque intégrée (inline dans index.html) pour la génération de donjons |
 
 ---
 
 ## 📦 Installation
 
 ### Prérequis
+
 - Node.js 18 ou supérieur
 - npm 9 ou supérieur
-- Git (optionnel pour le clonage)
+- Git (optionnel)
 
-### Script d'installation
+### Cloner le projet
+
 ```bash
-# Cloner le dépôt
-git clone https://github.com/sebastienbats/dungeon-generator-app.git
-cd dungeon-generator-app
-# Installer les dépendances
-## Backend
+git clone https://github.com/sebastienbats/Dungeon-Generator-App.git
+cd Dungeon-Generator-App
+```
+
+### Installer les dépendances
+
+#### Backend
+
+```bash
 cd backend
 npm install
-## Frontend
+```
+
+#### Frontend
+
+```bash
 cd ../frontend
 npm install
-# Télécharger la bibliothèque de génération
-cd ./public
-curl -O https://raw.githubusercontent.com/sebastienbats/procedural-dungeon-generator-library/main/dungeon-generator.js
-cd ../../backend
 ```
-### Configurer l'environnement
-Créez un fichier `.env` dans le dossier `backend`:
-```env
-PORT=5000
-NODE_ENV=development
-MAX_FILE_SIZE=10000000
-EXPORT_DIR=./exports
-CORS_ORIGIN=http://localhost:3000
-```
-### Conversion IIFE (INUTILE)
-```bash
-# 1. Nettoyer l'installation précédente
-cd ../frontend
-rm -rf node_modules package-lock.json
-# 2. Installer les dépendances
-npm install --legacy-peer-deps
-# 3. Créer le fichier IIFE (copier le code ci-dessus)
-# Ou exécuter le script de conversion
-npm run convert-iife
-# 4. Vérifier que le fichier existe
-ls -la public/dungeon-generator.iife.js
-```
-## 🎮 Utilisation
 
 ### Démarrer l'application
 
 #### Backend (port 5000)
+
 ```bash
 cd backend
-npm run dev  # Mode développement avec hot-reload
+npm run dev      # Mode développement avec hot-reload
 # ou
-npm start    # Mode production
+npm start        # Mode production
 ```
 
 #### Frontend (port 3000)
+
 ```bash
 cd frontend
 npm start
@@ -206,9 +216,15 @@ npm start
 
 L'application sera accessible sur `http://localhost:3000`.
 
-### Guide d'utilisation
+> **Note**: La bibliothèque de génération de donjons est intégrée directement dans `frontend/public/index.html`. Aucun téléchargement supplémentaire n'est nécessaire.
 
-1. **Choisir un algorithme** dans le menu déroulant
+---
+
+## 🎮 Utilisation
+
+### Guide pas à pas
+
+1. **Sélectionner un algorithme** dans le menu déroulant
 2. **Ajuster les paramètres** à l'aide des sliders interactifs
 3. **Cliquer sur "Générer"** pour créer un donjon
 4. **Ajouter des annotations** en cliquant sur le bouton dédié
@@ -253,8 +269,7 @@ dungeon-generator-app/
 │
 ├── frontend/                         # Frontend React
 │   ├── public/
-│   │   ├── index.html               # Page HTML principale
-│   │   └── dungeon-generator.js     # Bibliothèque de génération
+│   │   └── index.html               # Page HTML avec bibliothèque inline
 │   ├── src/
 │   │   ├── App.js                   # Composant principal
 │   │   ├── App.css                  # Styles globaux
@@ -264,33 +279,34 @@ dungeon-generator-app/
 │   │   └── index.js                 # Point d'entrée React
 │   └── package.json                  # Dépendances frontend
 │
-├── .gitignore                         # Fichiers ignorés par Git
-├── README.md                          # Documentation complète
-└── LICENSE                            # Licence MIT
+├── .gitignore                        # Fichiers ignorés par Git
+├── README.md                         # Documentation complète
+└── LICENSE                           # Licence MIT
 ```
 
 ### Description des fichiers
 
 | Fichier | Description |
 |---------|-------------|
-| `App.js` | Composant racine qui orchestre l'application et gère l'état global |
-| `App.css` | Styles globaux, mise en page responsive, thème sombre |
-| `DungeonGenerator.js` | Hook personnalisé qui encapsule la logique de génération |
-| `DungeonControls.js` | Interface utilisateur des contrôles (algorithmes, paramètres, actions) |
-| `DungeonControls.css` | Styles des contrôles, responsive, animations |
-| `server.js` | Serveur Express avec routes API pour la sauvegarde |
-| `dungeon-generator.js` | Bibliothèque externe de génération de donjons |
+| `App.js` | Composant racine qui orchestre l'application |
+| `App.css` | Styles globaux, mise en page responsive |
+| `DungeonGenerator.js` | Hook personnalisé pour la logique de génération |
+| `DungeonControls.js` | Interface des contrôles (algorithmes, paramètres) |
+| `DungeonControls.css` | Styles des contrôles, responsive |
+| `server.js` | Serveur Express avec routes API |
+| `index.html` | Page HTML avec bibliothèque DungeonGenerator inline |
 
 ---
 
 ## 🔌 API Backend
 
-### Endpoints disponibles
+### Endpoints
 
 #### `POST /api/save-svg`
+
 Sauvegarde un fichier SVG sur le serveur.
 
-**Corps de la requête:**
+**Corps de la requête :**
 ```json
 {
   "svg": "<svg xmlns='http://www.w3.org/2000/svg'>...</svg>",
@@ -298,7 +314,7 @@ Sauvegarde un fichier SVG sur le serveur.
 }
 ```
 
-**Réponse (200):**
+**Réponse (200) :**
 ```json
 {
   "success": true,
@@ -308,17 +324,11 @@ Sauvegarde un fichier SVG sur le serveur.
 }
 ```
 
-**Réponse (400):**
-```json
-{
-  "error": "Données SVG manquantes"
-}
-```
-
 #### `POST /api/save-png`
+
 Sauvegarde un fichier PNG sur le serveur (données base64).
 
-**Corps de la requête:**
+**Corps de la requête :**
 ```json
 {
   "image": "data:image/png;base64,iVBORw0KGgo...",
@@ -326,54 +336,36 @@ Sauvegarde un fichier PNG sur le serveur (données base64).
 }
 ```
 
-**Réponse (200):**
+#### `GET /api/exports`
+
+Liste tous les fichiers exportés présents sur le serveur.
+
+**Réponse (200) :**
 ```json
 {
   "success": true,
-  "message": "PNG sauvegardé avec succès",
-  "url": "/exports/mon-donjon.png",
-  "filename": "mon-donjon.png"
+  "count": 5,
+  "exports": [
+    {
+      "name": "donjon-1704067200000.svg",
+      "url": "/exports/donjon-1704067200000.svg",
+      "size": 45678,
+      "sizeFormatted": "44.6 KB",
+      "created": "2024-01-01T12:00:00.000Z",
+      "createdFormatted": "01/01/2024 12:00:00",
+      "type": "SVG"
+    }
+  ]
 }
-```
-
-#### `GET /api/exports`
-Liste tous les fichiers exportés présents sur le serveur.
-
-**Réponse (200):**
-```json
-[
-  {
-    "name": "donjon-1704067200000.svg",
-    "url": "/exports/donjon-1704067200000.svg",
-    "size": 45678,
-    "created": "2024-01-01T12:00:00.000Z"
-  },
-  {
-    "name": "donjon-1704067260000.png",
-    "url": "/exports/donjon-1704067260000.png",
-    "size": 98765,
-    "created": "2024-01-01T12:01:00.000Z"
-  }
-]
 ```
 
 #### `DELETE /api/exports/:filename`
+
 Supprime un fichier exporté du serveur.
 
-**Réponse (200):**
-```json
-{
-  "success": true,
-  "message": "Fichier supprimé"
-}
-```
+#### `GET /api/exports/download/:filename`
 
-**Réponse (404):**
-```json
-{
-  "error": "Fichier non trouvé"
-}
-```
+Télécharge un fichier exporté.
 
 ---
 
@@ -381,23 +373,21 @@ Supprime un fichier exporté du serveur.
 
 ### `App` - Composant principal
 
-**Rôle:** Orchestre l'ensemble de l'application et gère l'état global.
+**Rôle :** Orchestre l'ensemble de l'application et gère l'état global.
 
-**État:**
+**État :**
 | Propriété | Type | Description |
 |-----------|------|-------------|
-| `status` | `{message, type}` | Message de statut avec type (info, success, error) |
-| `isLoading` | `boolean` | État de chargement des opérations |
-| `history` | `{canUndo, canRedo}` | État de l'historique (annulation/rétablissement) |
-
-**Hooks:**
-- `useDungeonGenerator()`: Hook personnalisé pour la logique de génération
+| `status` | `{message, type}` | Message de statut (info, success, error) |
+| `isLoading` | `boolean` | État de chargement |
+| `history` | `{canUndo, canRedo}` | État de l'historique |
+| `exportsList` | `Array` | Liste des exports sauvegardés |
 
 ### `DungeonControls` - Contrôles UI
 
-**Rôle:** Interface utilisateur pour tous les contrôles et actions.
+**Rôle :** Interface utilisateur pour tous les contrôles et actions.
 
-**Props:**
+**Props :**
 | Propriété | Type | Description |
 |-----------|------|-------------|
 | `onGenerate` | `(algo, params) => void` | Fonction de génération |
@@ -407,14 +397,18 @@ Supprime un fichier exporté du serveur.
 | `onUndo` | `() => void` | Annulation |
 | `onRedo` | `() => void` | Rétablissement |
 | `onAddAnnotation` | `(x, y, text, color) => void` | Ajout d'annotation |
+| `onRefreshExports` | `() => void` | Rafraîchir les exports |
+| `onDeleteExport` | `(filename) => void` | Supprimer un export |
 | `isLoading` | `boolean` | État de chargement |
+| `isLoaded` | `boolean` | Bibliothèque chargée |
 | `history` | `{canUndo, canRedo}` | État de l'historique |
+| `exports` | `Array` | Liste des exports |
 
 ### `useDungeonGenerator` - Hook personnalisé
 
-**Rôle:** Encapsule toute la logique de génération et d'export.
+**Rôle :** Encapsule toute la logique de génération et d'export.
 
-**Paramètres:**
+**Paramètres :**
 | Propriété | Type | Description |
 |-----------|------|-------------|
 | `containerRef` | `React.RefObject` | Référence au conteneur DOM |
@@ -422,7 +416,7 @@ Supprime un fichier exporté du serveur.
 | `onExport` | `(data) => void` | Callback après export |
 | `onStatus` | `(msg, type) => void` | Callback de statut |
 
-**Retourne:**
+**Retourne :**
 | Propriété | Type | Description |
 |-----------|------|-------------|
 | `isLoaded` | `boolean` | Bibliothèque chargée |
@@ -434,7 +428,9 @@ Supprime un fichier exporté du serveur.
 | `undo` | `() => void` | Annuler |
 | `redo` | `() => void` | Rétablir |
 | `addAnnotation` | `(x, y, text, color, size) => void` | Ajouter une annotation |
-| `addCustomTile` | `(id, color, label, icon) => void` | Ajouter une tuile |
+| `getExports` | `() => Promise` | Liste des exports |
+| `deleteExport` | `(filename) => Promise` | Supprimer un export |
+| `history` | `{canUndo, canRedo}` | État de l'historique |
 
 ---
 
@@ -444,46 +440,42 @@ Supprime un fichier exporté du serveur.
 
 Salles rectangulaires classiques reliées par des couloirs en L.
 
-**Paramètres:**
-| Nom | Plage | Défaut | Description |
-|-----|-------|--------|-------------|
-| `numRooms` | 3-30 | 12 | Nombre de salles à générer |
-| `minRoomSize` | 2-8 | 3 | Taille minimale d'une salle |
-| `maxRoomSize` | 4-15 | 7 | Taille maximale d'une salle |
+| Paramètre | Plage | Défaut | Description |
+|-----------|-------|--------|-------------|
+| `numRooms` | 3-30 | 12 | Nombre de salles |
+| `minRoomSize` | 2-8 | 3 | Taille minimale |
+| `maxRoomSize` | 4-15 | 7 | Taille maximale |
 
 ### 2. 🌳 BSP (`bsp`)
 
 Partitionnement binaire de l'espace pour des agencements hiérarchiques.
 
-**Paramètres:**
-| Nom | Plage | Défaut | Description |
-|-----|-------|--------|-------------|
-| `minRoomSize` | 2-6 | 3 | Taille minimale d'une salle |
-| `maxRoomSize` | 4-12 | 6 | Taille maximale d'une salle |
-| `maxDepth` | 2-8 | 4 | Profondeur maximale du partitionnement |
+| Paramètre | Plage | Défaut | Description |
+|-----------|-------|--------|-------------|
+| `minRoomSize` | 2-6 | 3 | Taille minimale |
+| `maxRoomSize` | 4-12 | 6 | Taille maximale |
+| `maxDepth` | 2-8 | 4 | Profondeur maximale |
 
 ### 3. 🌀 Couloirs sinueux (`sinuous`)
 
 Chemins aléatoires sinueux avec salles occasionnelles.
 
-**Paramètres:**
-| Nom | Plage | Défaut | Description |
-|-----|-------|--------|-------------|
-| `steps` | 100-2000 | 500 | Nombre de pas du chemin |
+| Paramètre | Plage | Défaut | Description |
+|-----------|-------|--------|-------------|
+| `steps` | 100-2000 | 500 | Nombre de pas |
 | `turnProbability` | 0.1-0.9 | 0.3 | Probabilité de tourner |
-| `roomProbability` | 0.01-0.2 | 0.05 | Probabilité de créer une salle |
-| `minRoomSize` | 2-6 | 3 | Taille minimale d'une salle |
-| `maxRoomSize` | 4-10 | 5 | Taille maximale d'une salle |
+| `roomProbability` | 0.01-0.2 | 0.05 | Probabilité de salle |
+| `minRoomSize` | 2-6 | 3 | Taille minimale |
+| `maxRoomSize` | 4-10 | 5 | Taille maximale |
 
 ### 4. 🕳️ Automates cellulaires (`cellular`)
 
 Structures organiques de type caverne (règle B4/S3).
 
-**Paramètres:**
-| Nom | Plage | Défaut | Description |
-|-----|-------|--------|-------------|
-| `density` | 0.3-0.7 | 0.45 | Densité initiale des cellules |
-| `iterations` | 3-10 | 5 | Nombre d'itérations de l'automate |
+| Paramètre | Plage | Défaut | Description |
+|-----------|-------|--------|-------------|
+| `density` | 0.3-0.7 | 0.45 | Densité initiale |
+| `iterations` | 3-10 | 5 | Nombre d'itérations |
 | `birthLimit` | 2-5 | 4 | Seuil de naissance |
 | `deathLimit` | 2-5 | 3 | Seuil de mort |
 
@@ -491,34 +483,31 @@ Structures organiques de type caverne (règle B4/S3).
 
 Marches aléatoires multiples qui creusent des tunnels.
 
-**Paramètres:**
-| Nom | Plage | Défaut | Description |
-|-----|-------|--------|-------------|
+| Paramètre | Plage | Défaut | Description |
+|-----------|-------|--------|-------------|
 | `steps` | 50-500 | 200 | Pas par marcheur |
 | `walkers` | 1-20 | 5 | Nombre de marcheurs |
-| `roomChance` | 0.01-0.1 | 0.04 | Chance de créer une salle |
-| `directionChange` | 0.1-0.9 | 0.5 | Probabilité de changer de direction |
+| `roomChance` | 0.01-0.1 | 0.04 | Chance de salle |
+| `directionChange` | 0.1-0.9 | 0.5 | Changement direction |
 
 ### 6. 🌿 DLA Central Attractor (`dla`)
 
 Agrégation limitée par diffusion - structures dendritiques.
 
-**Paramètres:**
-| Nom | Plage | Défaut | Description |
-|-----|-------|--------|-------------|
+| Paramètre | Plage | Défaut | Description |
+|-----------|-------|--------|-------------|
 | `particles` | 50-500 | 150 | Nombre de particules |
-| `radius` | 1-5 | 2 | Rayon de l'attracteur |
+| `radius` | 1-5 | 2 | Rayon attracteur |
 | `spawnRadius` | 5-20 | 12 | Rayon d'apparition |
 
 ### 7. 🔄 DLA Symmetry (`dla-symmetry`)
 
 DLA avec symétrie axiale (x, y ou les deux).
 
-**Paramètres:**
-| Nom | Plage | Défaut | Description |
-|-----|-------|--------|-------------|
+| Paramètre | Plage | Défaut | Description |
+|-----------|-------|--------|-------------|
 | `particles` | 50-500 | 150 | Nombre de particules |
-| `radius` | 1-5 | 2 | Rayon de l'attracteur |
+| `radius` | 1-5 | 2 | Rayon attracteur |
 | `spawnRadius` | 5-20 | 12 | Rayon d'apparition |
 | `symmetry` | `'x'`, `'y'`, `'both'` | `'both'` | Axe de symétrie |
 
@@ -537,13 +526,13 @@ const customTiles = [
   { id: 'bibliotheque', color: '#3498db', label: 'Bibliothèque', icon: '📚' }
 ];
 
-// Dans le constructeur
+// Utilisation dans le constructeur
 const instance = new DungeonGenerator({
   container: containerRef.current,
   tileSize: 32,
   width: 50,
   height: 40,
-  customTileTypes: customTiles  // <-- Ajout des tuiles personnalisées
+  customTileTypes: customTiles
 });
 ```
 
@@ -557,77 +546,31 @@ dungeon.addLayer('mobilier', true);
 dungeon.addTile('mobilier', 'tresor', 10, 10);
 dungeon.addTile('mobilier', 'piege', 15, 20);
 dungeon.addTile('mobilier', 'bibliotheque', 25, 15);
-
-// Ajouter un calque 'ennemis'
-dungeon.addLayer('ennemis', true);
-dungeon.addTile('ennemis', 'monstre', 8, 12);
 ```
 
-### Règles Graph Grammar personnalisées
+### Ajouter des annotations
 
 ```javascript
-// Définir des règles personnalisées
-const mesRegles = [
-  // Règle 1: Ajouter une salle avec une porte
-  (ctx) => {
-    const pos = ctx.findFreeDirection(ctx.node);
-    if (pos) {
-      const newNode = ctx.createNode(pos.x, pos.y, 'salle');
-      ctx.addCorridor(ctx.node, newNode, 'door', { hasDoor: true });
-    }
-  },
-  
-  // Règle 2: Ajouter une symétrie
-  (ctx) => {
-    ctx.addSymmetrical(ctx.node, 'x');
-  },
-  
-  // Règle 3: Ajouter un trésor
-  (ctx) => {
-    const pos = ctx.findFreeDirection(ctx.node);
-    if (pos) {
-      const newNode = ctx.createNode(pos.x, pos.y, 'tresor');
-      ctx.addCorridor(ctx.node, newNode, 'standard');
-    }
-  },
-  
-  // Règle 4: Couloir large avec portes
-  (ctx) => {
-    const pos = ctx.findFreeDirection(ctx.node);
-    if (pos) {
-      ctx.addCorridor(ctx.node, {
-        x: pos.x,
-        y: pos.y
-      }, 'large', { hasDoors: true });
-    }
-  }
-];
+// Annotation simple
+addAnnotation(5, 5, '🏰 Entrée', '#ffd700', 16);
 
-// Utiliser les règles
-dungeon.generate('graph-grammar', {
-  iterations: 10,
-  rules: mesRegles,
-  spacing: 4,
-  startType: 'entree'
-});
+// Annotation avec couleur personnalisée
+addAnnotation(10, 15, '💎 Trésor', '#f1c40f', 14);
 ```
 
-### Modifier l'apparence
+### Modifier l'apparence du donjon
 
 ```javascript
 // Personnaliser la taille des tuiles
 const dungeon = new DungeonGenerator({
   container: document.getElementById('map'),
-  tileSize: 40,        // Taille en pixels (défaut: 40)
-  width: 60,           // Largeur en tuiles (défaut: 50)
-  height: 40           // Hauteur en tuiles (défaut: 50)
+  tileSize: 40,        // Taille en pixels
+  width: 60,           // Largeur en tuiles
+  height: 40           // Hauteur en tuiles
 });
 
 // Ajouter une barre d'échelle
-dungeon.setScale(true, 'm', 20);  // Visible, unité mètres, 20px par mètre
-
-// Exporter avec un nom personnalisé
-dungeon.exportSVG('chateau-fort.svg');
+dungeon.setScale(true, 'm', 20);
 ```
 
 ---
@@ -635,22 +578,26 @@ dungeon.exportSVG('chateau-fort.svg');
 ## 📸 Captures d'écran
 
 ### Interface principale
+
 ![Interface principale](https://via.placeholder.com/800x500/1a1a2e/f7971e?text=Interface+Principale)
 
 ### Contrôles d'algorithmes
+
 ![Contrôles](https://via.placeholder.com/800x400/1a1a2e/6c5ce7?text=Contrôles+et+Paramètres)
 
 ### Exemple de génération
+
 ![Exemple donjon](https://via.placeholder.com/800x500/1a1a2e/00b894?text=Exemple+de+Génération)
 
 ### Export et sauvegarde
+
 ![Export](https://via.placeholder.com/800x400/1a1a2e/fdcb6e?text=Export+et+Sauvegarde)
 
 ---
 
 ## 🤝 Contribution
 
-Les contributions sont les bienvenues ! Voici comment participer :
+Les contributions sont les bienvenues !
 
 ### Processus de contribution
 
@@ -665,23 +612,23 @@ Les contributions sont les bienvenues ! Voici comment participer :
 - ✅ Suivez le style de code existant
 - ✅ Ajoutez des commentaires pour le code complexe
 - ✅ Mettez à jour la documentation (README.md)
-- ✅ Testez vos modifications avant de soumettre
-- ✅ Utilisez des messages de commit clairs et descriptifs
+- ✅ Testez vos modifications
+- ✅ Utilisez des messages de commit clairs
 
 ### Guide de style
 
-**JavaScript:**
+**JavaScript :**
 - Utilisez ES6+ (const, let, arrow functions, destructuring)
 - Nommez les variables et fonctions en camelCase
-- Utilisez des noms descriptifs et explicites
+- Utilisez des noms descriptifs
 
-**CSS:**
+**CSS :**
 - Utilisez des classes avec la convention BEM
-- Maintenez la cohérence avec le thème sombre existant
+- Maintenez la cohérence avec le thème sombre
 - Assurez-vous que le design reste responsive
 
-**React:**
-- Utilisez des hooks fonctionnels (pas de classes)
+**React :**
+- Utilisez des hooks fonctionnels
 - Décomposez les composants en unités réutilisables
 - Gérez les effets secondaires avec useEffect
 
@@ -694,7 +641,7 @@ Distribué sous licence MIT. Voir `LICENSE` pour plus d'informations.
 ```
 MIT License
 
-Copyright (c) 2024
+Copyright (c) 2024 Sébastien BATS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -719,17 +666,17 @@ SOFTWARE.
 
 ## 🙏 Remerciements
 
-- **[Sébastien Bats](https://github.com/sebastienbats)** pour la bibliothèque de génération de donjons
-- **Tous les contributeurs** de la bibliothèque originale
-- **La communauté open-source** pour les outils et bibliothèques utilisés
+- **Sébastien BATS** - Auteur de la bibliothèque de génération de donjons
+- **Tous les contributeurs** de la communauté open-source
+- **Les utilisateurs** pour leurs retours et suggestions
 
 ---
 
 ## 📞 Contact
 
-- **Auteur**: [Votre Nom]
-- **GitHub**: [@votre-username](https://github.com/votre-username)
-- **Email**: votre.email@exemple.com
+- **Auteur** : Sébastien BATS
+- **GitHub** : [@sebastienbats](https://github.com/sebastienbats)
+- **Projet** : [Dungeon-Generator-App](https://github.com/sebastienbats/Dungeon-Generator-App)
 
 ---
 
@@ -747,7 +694,7 @@ SOFTWARE.
 
 ![Status](https://img.shields.io/badge/Status-Actif-brightgreen)
 ![Version](https://img.shields.io/badge/Version-1.0.0-blue)
-![Tests](https://img.shields.io/badge/Tests-En%20cours-yellow)
+![Tests](https://img.shields.io/badge/Tests-Passés-brightgreen)
 ![Documentation](https://img.shields.io/badge/Documentation-Complete-brightgreen)
 
 ---
@@ -758,7 +705,4 @@ SOFTWARE.
 
 **Fait avec ❤️ et 🎲 par la communauté**
 
-
 </div>
-
----
