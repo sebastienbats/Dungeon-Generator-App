@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './DungeonControls.css';
 
 const ALGORITHMS = {
@@ -73,13 +73,18 @@ const DungeonControls = ({
   onUndo,
   onRedo,
   onAddAnnotation,
+  onRefreshExports,
+  onDeleteExport,
   isLoading,
-  history
+  history,
+  exports: exportsList,
+  isLoaded
 }) => {
   const [selectedAlgo, setSelectedAlgo] = useState('rooms');
   const [params, setParams] = useState({});
   const [showAnnotation, setShowAnnotation] = useState(false);
   const [annotation, setAnnotation] = useState({ x: 10, y: 10, text: 'Entrée', color: '#ffd700' });
+  const [showExports, setShowExports] = useState(false);
 
   // Initialiser les paramètres par défaut
   useEffect(() => {
@@ -92,24 +97,28 @@ const DungeonControls = ({
     }
   }, [selectedAlgo]);
 
-  const handleAlgoChange = (e) => {
+  const handleAlgoChange = useCallback((e) => {
     setSelectedAlgo(e.target.value);
-  };
+  }, []);
 
-  const handleParamChange = (key, value) => {
+  const handleParamChange = useCallback((key, value) => {
     setParams(prev => ({ ...prev, [key]: value }));
-  };
+  }, []);
 
-  const handleGenerate = () => {
+  const handleGenerate = useCallback(() => {
+    if (!isLoaded) {
+      alert('Le générateur n\'est pas encore chargé. Veuillez patienter.');
+      return;
+    }
     onGenerate(selectedAlgo, params);
-  };
+  }, [selectedAlgo, params, onGenerate, isLoaded]);
 
-  const handleAnnotationAdd = () => {
+  const handleAnnotationAdd = useCallback(() => {
     onAddAnnotation(annotation.x, annotation.y, annotation.text, annotation.color);
     setShowAnnotation(false);
-  };
+  }, [annotation, onAddAnnotation]);
 
-  const renderParamInput = (key, config) => {
+  const renderParamInput = useCallback((key, config) => {
     const value = params[key] !== undefined ? params[key] : config.default;
 
     if (config.options) {
@@ -140,7 +149,7 @@ const DungeonControls = ({
         <span className="param-value">{value}</span>
       </div>
     );
-  };
+  }, [params, handleParamChange]);
 
   return (
     <div className="dungeon-controls">
@@ -151,6 +160,7 @@ const DungeonControls = ({
             value={selectedAlgo} 
             onChange={handleAlgoChange}
             className="algo-select"
+            disabled={!isLoaded}
           >
             {Object.entries(ALGORITHMS).map(([key, algo]) => (
               <option key={key} value={key}>{algo.label}</option>
@@ -173,7 +183,7 @@ const DungeonControls = ({
         <div className="control-group actions-group">
           <button 
             onClick={handleGenerate} 
-            disabled={isLoading}
+            disabled={isLoading || !isLoaded}
             className="btn btn-generate"
           >
             {isLoading ? '⏳ Génération...' : '🎲 Générer'}
@@ -186,6 +196,7 @@ const DungeonControls = ({
           <button 
             onClick={() => setShowAnnotation(!showAnnotation)}
             className="btn btn-annotation"
+            disabled={!isLoaded}
           >
             📝 Annotation
           </button>
@@ -211,7 +222,7 @@ const DungeonControls = ({
                 value={annotation.text}
                 onChange={(e) => setAnnotation({ ...annotation, text: e.target.value })}
                 placeholder="Texte"
-                className="annotation-input"
+                className="annotation-input text"
               />
               <input
                 type="color"
@@ -229,14 +240,14 @@ const DungeonControls = ({
         <div className="control-group">
           <button 
             onClick={onUndo} 
-            disabled={!history?.canUndo}
+            disabled={!history?.canUndo || !isLoaded}
             className="btn btn-history"
           >
             ↩️ Annuler
           </button>
           <button 
             onClick={onRedo} 
-            disabled={!history?.canRedo}
+            disabled={!history?.canRedo || !isLoaded}
             className="btn btn-history"
           >
             ↪️ Rétablir
@@ -244,17 +255,71 @@ const DungeonControls = ({
         </div>
 
         <div className="control-group export-group">
-          <button onClick={onExportSVG} className="btn btn-export-svg">
+          <button onClick={onExportSVG} className="btn btn-export-svg" disabled={!isLoaded}>
             📄 SVG
           </button>
-          <button onClick={onExportPNG} className="btn btn-export-png">
+          <button onClick={onExportPNG} className="btn btn-export-png" disabled={!isLoaded}>
             🖼️ PNG
           </button>
-          <button onClick={onPrint} className="btn btn-export-print">
+          <button onClick={onPrint} className="btn btn-export-print" disabled={!isLoaded}>
             🖨️ Imprimer
+          </button>
+          <button 
+            onClick={() => setShowExports(!showExports)} 
+            className="btn btn-export-print"
+            style={{ background: '#6c5ce7' }}
+          >
+            📁 Exports
           </button>
         </div>
       </div>
+
+      {showExports && (
+        <div className="exports-panel">
+          <div className="exports-header">
+            <span>📁 Exports sauvegardés ({exportsList?.length || 0})</span>
+            <button 
+              onClick={onRefreshExports} 
+              className="btn btn-small"
+              style={{ background: '#2d3436', color: '#dfe6e9' }}
+            >
+              🔄 Rafraîchir
+            </button>
+          </div>
+          <div className="exports-list">
+            {exportsList && exportsList.length > 0 ? (
+              exportsList.map((file) => (
+                <div key={file.name} className="export-item">
+                  <span className="export-name">{file.name}</span>
+                  <span className="export-size">{file.sizeFormatted}</span>
+                  <span className="export-date">{file.createdFormatted}</span>
+                  <div className="export-actions">
+                    <a 
+                      href={file.url} 
+                      download={file.name}
+                      className="btn btn-small"
+                      style={{ background: '#00b894', color: '#fff' }}
+                    >
+                      ⬇️
+                    </a>
+                    <button 
+                      onClick={() => onDeleteExport(file.name)}
+                      className="btn btn-small"
+                      style={{ background: '#d63031', color: '#fff' }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="export-empty">
+                Aucun export sauvegardé pour le moment
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
