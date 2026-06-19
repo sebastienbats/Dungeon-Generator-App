@@ -147,8 +147,7 @@
 - npm 9 ou supérieur
 - Git (optionnel pour le clonage)
 
-### Cloner le projet
-
+### Script d'installation
 ```bash
 # Cloner le dépôt
 git clone https://github.com/sebastienbats/dungeon-generator-app.git
