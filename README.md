@@ -165,9 +165,7 @@ curl -O https://raw.githubusercontent.com/sebastienbats/procedural-dungeon-gener
 cd ../../backend
 ```
 ### Configurer l'environnement
-
 Créez un fichier `.env` dans le dossier `backend`:
-
 ```env
 PORT=5000
 NODE_ENV=development
@@ -175,7 +173,19 @@ MAX_FILE_SIZE=10000000
 EXPORT_DIR=./exports
 CORS_ORIGIN=http://localhost:3000
 ```
-
+### Conversion IIFE
+```bash
+# 1. Nettoyer l'installation précédente
+cd ../frontend
+rm -rf node_modules package-lock.json
+# 2. Installer les dépendances
+npm install --legacy-peer-deps
+# 3. Créer le fichier IIFE (copier le code ci-dessus)
+# Ou exécuter le script de conversion
+npm run convert-iife
+# 4. Vérifier que le fichier existe
+ls -la public/dungeon-generator.iife.js
+```
 ## 🎮 Utilisation
 
 ### Démarrer l'application
