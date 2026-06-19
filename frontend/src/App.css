@@ -26,6 +26,9 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .app-header h1 {
@@ -33,7 +36,6 @@ body {
   background: linear-gradient(135deg, #f7971e, #ffd200);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: none;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -46,17 +48,57 @@ body {
   border-radius: 20px;
   color: #888;
   -webkit-text-fill-color: #888;
+  border: 1px solid #3a3a5a;
+}
+
+.app-header .status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.app-header .status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.ready {
+  background: #00b894;
+  animation: pulse-green 2s infinite;
+}
+
+.status-dot.loading {
+  background: #fdcb6e;
+  animation: pulse-yellow 1s infinite;
+}
+
+.status-dot.error {
+  background: #d63031;
+}
+
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes pulse-yellow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 .app-main {
   flex: 1;
-  display: flex;
-  flex-direction: column;
   padding: 1.5rem;
   gap: 1.5rem;
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .dungeon-container {
@@ -105,6 +147,7 @@ body {
   justify-content: center;
   border-radius: 16px;
   gap: 1rem;
+  z-index: 10;
 }
 
 .loading-spinner {
@@ -142,9 +185,15 @@ body {
   gap: 0.5rem;
 }
 
-.export-btn:hover {
+.export-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.export-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
 }
 
 .export-btn.svg {
@@ -152,7 +201,7 @@ body {
   color: #dfe6e9;
 }
 
-.export-btn.svg:hover {
+.export-btn.svg:hover:not(:disabled) {
   background: #3d4a4c;
 }
 
@@ -161,7 +210,7 @@ body {
   color: #fff;
 }
 
-.export-btn.png:hover {
+.export-btn.png:hover:not(:disabled) {
   background: #7d6def;
 }
 
@@ -170,7 +219,7 @@ body {
   color: #fff;
 }
 
-.export-btn.print:hover {
+.export-btn.print:hover:not(:disabled) {
   background: #00a884;
 }
 
@@ -179,7 +228,7 @@ body {
   color: #1a1a2e;
 }
 
-.export-btn.save:hover {
+.export-btn.save:hover:not(:disabled) {
   background: #fdcb6e;
 }
 
@@ -191,19 +240,19 @@ body {
 }
 
 .status-message.success {
-  background: rgba(0, 184, 148, 0.2);
+  background: rgba(0, 184, 148, 0.15);
   color: #00b894;
   border: 1px solid rgba(0, 184, 148, 0.3);
 }
 
 .status-message.error {
-  background: rgba(214, 48, 49, 0.2);
+  background: rgba(214, 48, 49, 0.15);
   color: #d63031;
   border: 1px solid rgba(214, 48, 49, 0.3);
 }
 
 .status-message.info {
-  background: rgba(108, 92, 231, 0.2);
+  background: rgba(108, 92, 231, 0.15);
   color: #6c5ce7;
   border: 1px solid rgba(108, 92, 231, 0.3);
 }
@@ -240,5 +289,21 @@ body {
   .export-btn {
     padding: 0.4rem 0.8rem;
     font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header h1 {
+    font-size: 1.1rem;
+  }
+  
+  .app-header .badge {
+    font-size: 0.6rem;
+    padding: 0.15rem 0.5rem;
+  }
+  
+  .dungeon-container {
+    min-height: 200px;
+    padding: 0.5rem;
   }
 }
