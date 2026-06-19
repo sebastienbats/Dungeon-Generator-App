@@ -52,14 +52,19 @@
   width: 100%;
 }
 
-.algo-select:hover,
-.param-select:hover {
+.algo-select:hover:not(:disabled),
+.param-select:hover:not(:disabled) {
   border-color: #4a4a6a;
 }
 
 .algo-select:focus,
 .param-select:focus {
   border-color: #6c5ce7;
+}
+
+.algo-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .params-group {
@@ -122,6 +127,11 @@
   background: #6c5ce7;
   cursor: pointer;
   border: none;
+}
+
+.param-slider:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .param-value {
@@ -261,7 +271,7 @@
   border-color: #6c5ce7;
 }
 
-.annotation-input[type="text"] {
+.annotation-input.text {
   width: 100px;
 }
 
@@ -280,6 +290,93 @@
   flex-direction: row;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* Exports Panel */
+.exports-panel {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: #0f0f1a;
+  border-radius: 8px;
+  border: 1px solid #2a2a4a;
+}
+
+.exports-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: #aaa;
+}
+
+.exports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.export-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  background: #1a1a2e;
+  border-radius: 6px;
+  border: 1px solid #2a2a4a;
+  flex-wrap: wrap;
+}
+
+.export-name {
+  flex: 1;
+  font-size: 0.85rem;
+  color: #e0e0e0;
+  min-width: 120px;
+}
+
+.export-size {
+  font-size: 0.75rem;
+  color: #888;
+  min-width: 60px;
+}
+
+.export-date {
+  font-size: 0.75rem;
+  color: #888;
+  min-width: 120px;
+}
+
+.export-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.export-empty {
+  text-align: center;
+  color: #666;
+  padding: 1rem;
+  font-size: 0.9rem;
+}
+
+/* Scrollbar personnalisée */
+.exports-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.exports-list::-webkit-scrollbar-track {
+  background: #0f0f1a;
+  border-radius: 3px;
+}
+
+.exports-list::-webkit-scrollbar-thumb {
+  background: #2a2a4a;
+  border-radius: 3px;
+}
+
+.exports-list::-webkit-scrollbar-thumb:hover {
+  background: #3a3a5a;
 }
 
 /* Responsive */
@@ -329,6 +426,16 @@
 
   .annotation-input {
     width: 100% !important;
+  }
+
+  .export-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.3rem;
+  }
+
+  .export-actions {
+    justify-content: flex-end;
   }
 }
 
