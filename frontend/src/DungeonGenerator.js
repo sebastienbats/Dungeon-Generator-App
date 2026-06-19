@@ -165,12 +165,14 @@ const useDungeonGenerator = ({
 
   // Génération du donjon
   const generateDungeon = useCallback((algorithm, params) => {
-    if (!generatorRef.current) {
-      setStatus('❌ Générateur non initialisé', 'error');
-      return Promise.reject(new Error('Générateur non initialisé'));
-    }
+    return new Promise((resolve, reject) => {
+      if (!generatorRef.current) {
+        const error = new Error('Générateur non initialisé');
+        setStatus('❌ Générateur non initialisé', 'error');
+        reject(error);
+        return;
+      }
 
-    return new Promise((resolve) => {
       try {
         setIsLoading(true);
         setStatus(`🔄 Génération avec ${algorithm}...`, 'info');
