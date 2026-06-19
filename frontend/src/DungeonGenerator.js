@@ -1,30 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
 
-// Charger la bibliothèque depuis le CDN ou local
-const loadDungeonLibrary = () => {
-  return new Promise((resolve, reject) => {
-    if (window.DungeonGenerator) {
-      resolve(window.DungeonGenerator);
-      return;
-    }
-    
-    // Charger le script depuis le CDN (à adapter selon votre hébergement)
-    const script = document.createElement('script');
-    script.src = '/dungeon-generator.js'; // Placez le fichier dans public/
-    script.onload = () => {
-      if (window.DungeonGenerator) {
-        resolve(window.DungeonGenerator);
-      } else {
-        reject(new Error('La bibliothèque DungeonGenerator n\'a pas été trouvée'));
-      }
-    };
-    script.onerror = () => reject(new Error('Erreur de chargement de la bibliothèque'));
-    document.head.appendChild(script);
-  });
-};
-
-const DungeonGenerator = ({ 
+/**
+ * Hook personnalisé pour la génération de donjons
+ * Utilise la bibliothèque DungeonGenerator chargée dans index.html
+ */
+const useDungeonGenerator = ({ 
   containerRef, 
   onGenerate, 
   onExport, 
@@ -36,249 +17,28 @@ const DungeonGenerator = ({
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
   
   const generatorRef = useRef(null);
+  const checkIntervalRef = useRef(null);
+  const timeoutRef = useRef(null);
 
-  // Initialisation de la bibliothèque
-  useEffect(() => {
-    const initLibrary = async () => {
-      try {
-        setIsLoading(true);
-        await loadDungeonLibrary();
-        
-        if (!containerRef.current) {
-          throw new Error('Container non disponible');
-        }
+  // Wrapper pour onStatus
+  const setStatus = useCallback((message, type = 'info') => {
+    if (onStatus) {
+      onStatus(message, type);
+    }
+  }, [onStatus]);
 
-        // Créer l'instance du générateur
-        const DungeonGen = window.DungeonGenerator;
-        const instance = new DungeonGen({
-          container: containerRef.current,
-          tileSize: 32,
-          width: 50,
-          height: 40
-        });
-        
-        generatorRef.current = instance;
-        setDungeon(instance);
-        setIsLoaded(true);
-        setIsLoading(false);
-        
-        // Mettre à jour l'état de l'historique
-        updateHistoryState(instance);
-        
-        onStatus?.('Prêt', 'info');
-      } catch (error) {
-        console.error('Erreur d\'initialisation:', error);
-        setIsLoading(false);
-        onStatus?.(`Erreur: ${error.message}`, 'error');
-      }
-    };
-
-    initLibrary();
-    
-    return () => {
-      // Nettoyage
-      if (generatorRef.current) {
-        try {
-          generatorRef.current.container.innerHTML = '';
-        } catch (e) {}
-      }
-    };
-  }, []);
-
-  const updateHistoryState = (instance) => {
+  // Mise à jour de l'historique
+  const updateHistoryState = useCallback((instance) => {
     if (instance) {
       setHistory({
-        canUndo: instance.undo && typeof instance.undo === 'function',
-        canRedo: instance.redo && typeof instance.redo === 'function'
+        canUndo: typeof instance.undo === 'function',
+        canRedo: typeof instance.redo === 'function'
       });
     }
-  };
+  }, []);
 
-  const generateDungeon = async (algorithm, params) => {
-    if (!generatorRef.current) {
-      onStatus?.('Générateur non initialisé', 'error');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      onStatus?.(`Génération avec ${algorithm}...`, 'info');
-      
-      const instance = generatorRef.current;
-      
-      // Générer le donjon
-      instance.generate(algorithm, params, false);
-      
-      // Mettre à jour l'historique
-      updateHistoryState(instance);
-      
-      // Forcer le rendu
-      instance.render();
-      
-      setIsLoading(false);
-      onStatus?.(`Donjon généré avec succès! (${algorithm})`, 'success');
-      onGenerate?.(instance);
-    } catch (error) {
-      console.error('Erreur de génération:', error);
-      setIsLoading(false);
-      onStatus?.(`Erreur: ${error.message}`, 'error');
-    }
-  };
-
-  const addAnnotation = (x, y, text, color = '#ffd700', fontSize = 14) => {
-    if (!generatorRef.current) return;
-    try {
-      generatorRef.current.addAnnotation(x, y, text, color, fontSize);
-      generatorRef.current.render();
-      onStatus?.(`Annotation ajoutée à (${x}, ${y})`, 'info');
-    } catch (error) {
-      onStatus?.(`Erreur d'annotation: ${error.message}`, 'error');
-    }
-  };
-
-  const undo = () => {
-    if (!generatorRef.current) return;
-    try {
-      generatorRef.current.undo();
-      generatorRef.current.render();
-      updateHistoryState(generatorRef.current);
-      onStatus?.('Annulation effectuée', 'info');
-    } catch (error) {
-      onStatus?.(`Erreur: ${error.message}`, 'error');
-    }
-  };
-
-  const redo = () => {
-    if (!generatorRef.current) return;
-    try {
-      generatorRef.current.redo();
-      generatorRef.current.render();
-      updateHistoryState(generatorRef.current);
-      onStatus?.('Rétablissement effectué', 'info');
-    } catch (error) {
-      onStatus?.(`Erreur: ${error.message}`, 'error');
-    }
-  };
-
-  const exportSVG = async (filename = 'donjon.svg') => {
-    if (!generatorRef.current) {
-      onStatus?.('Générateur non initialisé', 'error');
-      return;
-    }
-    
-    try {
-      const instance = generatorRef.current;
-      
-      // Méthode 1: Utiliser l'export natif
-      if (instance.exportSVG) {
-        instance.exportSVG(filename);
-        onStatus?.(`SVG exporté: ${filename}`, 'success');
-        onExport?.({ type: 'svg', filename, data: null });
-        return;
-      }
-      
-      // Méthode 2: Récupérer le SVG depuis le DOM
-      const svgElement = containerRef.current?.querySelector('svg');
-      if (!svgElement) {
-        throw new Error('Aucun SVG trouvé');
-      }
-      
-      const svgData = new XMLSerializer().serializeToString(svgElement);
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      
-      // Télécharger
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(svgBlob);
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
-      
-      onStatus?.(`SVG exporté: ${filename}`, 'success');
-      onExport?.({ type: 'svg', filename, data: svgData });
-      
-      // Sauvegarder sur le serveur
-      await saveToServer(svgData, filename, 'svg');
-      
-    } catch (error) {
-      console.error('Erreur d\'export SVG:', error);
-      onStatus?.(`Erreur: ${error.message}`, 'error');
-    }
-  };
-
-  const exportPNG = async (filename = 'donjon.png') => {
-    if (!generatorRef.current) {
-      onStatus?.('Générateur non initialisé', 'error');
-      return;
-    }
-    
-    try {
-      const instance = generatorRef.current;
-      
-      // Méthode 1: Utiliser l'export natif
-      if (instance.exportPNG) {
-        instance.exportPNG(filename);
-        onStatus?.(`PNG exporté: ${filename}`, 'success');
-        onExport?.({ type: 'png', filename, data: null });
-        return;
-      }
-      
-      // Méthode 2: Convertir SVG en PNG via canvas
-      const svgElement = containerRef.current?.querySelector('svg');
-      if (!svgElement) {
-        throw new Error('Aucun SVG trouvé');
-      }
-      
-      // Obtenir les dimensions
-      const rect = svgElement.getBoundingClientRect();
-      const width = rect.width || svgElement.viewBox?.baseVal?.width || 800;
-      const height = rect.height || svgElement.viewBox?.baseVal?.height || 600;
-      
-      // Créer un canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = width * 2; // 2x pour la qualité
-      canvas.height = height * 2;
-      const ctx = canvas.getContext('2d');
-      ctx.scale(2, 2);
-      
-      // Dessiner le SVG sur le canvas
-      const svgData = new XMLSerializer().serializeToString(svgElement);
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-      
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, width, height);
-        URL.revokeObjectURL(url);
-        
-        // Exporter en PNG
-        const pngData = canvas.toDataURL('image/png');
-        const link = document.createElement('a');
-        link.href = pngData;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        onStatus?.(`PNG exporté: ${filename}`, 'success');
-        onExport?.({ type: 'png', filename, data: pngData });
-        
-        // Sauvegarder sur le serveur
-        saveToServer(pngData, filename, 'png');
-      };
-      img.onerror = () => {
-        throw new Error('Erreur lors du chargement du SVG');
-      };
-      img.src = url;
-      
-    } catch (error) {
-      console.error('Erreur d\'export PNG:', error);
-      onStatus?.(`Erreur: ${error.message}`, 'error');
-    }
-  };
-
-  const saveToServer = async (data, filename, type) => {
+  // Sauvegarde sur le serveur
+  const saveToServer = useCallback(async (data, filename, type) => {
     try {
       const endpoint = type === 'svg' ? '/api/save-svg' : '/api/save-png';
       const payload = type === 'svg' 
@@ -288,54 +48,321 @@ const DungeonGenerator = ({
       const response = await axios.post(endpoint, payload);
       
       if (response.data.success) {
-        console.log(`📁 Fichier sauvegardé sur le serveur: ${response.data.url}`);
-        onStatus?.(`📁 Sauvegardé: ${response.data.filename}`, 'info');
+        console.log(`📁 Fichier sauvegardé: ${response.data.url}`);
+        setStatus(`📁 Sauvegardé: ${response.data.filename}`, 'info');
+        return response.data;
       }
+      return null;
     } catch (error) {
-      console.error('Erreur de sauvegarde sur le serveur:', error);
-      // Ne pas bloquer l'export local
+      console.error('❌ Erreur de sauvegarde:', error);
+      setStatus(`❌ Erreur de sauvegarde: ${error.message}`, 'error');
+      return null;
     }
-  };
+  }, [setStatus]);
 
-  const printDungeon = () => {
-    if (!generatorRef.current) {
-      onStatus?.('Générateur non initialisé', 'error');
-      return;
-    }
-    
+  // Création de l'instance
+  const createInstance = useCallback(() => {
     try {
-      if (generatorRef.current.print) {
-        generatorRef.current.print();
-        onStatus?.('Impression en cours...', 'info');
-      } else {
-        // Fallback: imprimer la fenêtre
-        window.print();
+      if (!containerRef.current) {
+        setStatus('❌ Container non disponible', 'error');
+        return;
+      }
+
+      // Vérifier que la bibliothèque est disponible
+      if (typeof window.DungeonGenerator !== 'function') {
+        setStatus('❌ DungeonGenerator non disponible', 'error');
+        return;
+      }
+
+      const instance = new window.DungeonGenerator({
+        container: containerRef.current,
+        tileSize: 32,
+        width: 50,
+        height: 40,
+        customTileTypes: [
+          { id: 'tresor', color: '#f1c40f', label: 'Trésor', icon: '💰' },
+          { id: 'piege', color: '#e74c3c', label: 'Piège', icon: '⚔️' },
+          { id: 'portail', color: '#8e44ad', label: 'Portail', icon: '🌀' },
+          { id: 'autel', color: '#9b59b6', label: 'Autel', icon: '🕯️' },
+          { id: 'bibliotheque', color: '#3498db', label: 'Bibliothèque', icon: '📚' }
+        ]
+      });
+      
+      generatorRef.current = instance;
+      setDungeon(instance);
+      setIsLoaded(true);
+      
+      updateHistoryState(instance);
+      setStatus('✅ Prêt', 'success');
+      
+    } catch (error) {
+      console.error('❌ Erreur de création:', error);
+      setStatus(`❌ Erreur: ${error.message}`, 'error');
+    }
+  }, [containerRef, setStatus, updateHistoryState]);
+
+  // Initialisation de la bibliothèque
+  useEffect(() => {
+    const initLibrary = () => {
+      try {
+        // Vérifier si la bibliothèque est disponible
+        if (typeof window.DungeonGenerator !== 'function') {
+          // Attendre que le script soit chargé
+          checkIntervalRef.current = setInterval(() => {
+            if (typeof window.DungeonGenerator === 'function') {
+              clearInterval(checkIntervalRef.current);
+              checkIntervalRef.current = null;
+              createInstance();
+            }
+          }, 100);
+          
+          // Timeout après 5 secondes
+          timeoutRef.current = setTimeout(() => {
+            if (checkIntervalRef.current) {
+              clearInterval(checkIntervalRef.current);
+              checkIntervalRef.current = null;
+              setStatus('❌ La bibliothèque DungeonGenerator n\'a pas été trouvée', 'error');
+            }
+          }, 5000);
+          
+          return;
+        }
+
+        createInstance();
+
+      } catch (error) {
+        console.error('❌ Erreur d\'initialisation:', error);
+        setStatus(`❌ Erreur: ${error.message}`, 'error');
+      }
+    };
+
+    // Initialiser après le chargement du DOM
+    if (document.readyState === 'complete') {
+      initLibrary();
+    } else {
+      window.addEventListener('load', initLibrary);
+    }
+    
+    return () => {
+      window.removeEventListener('load', initLibrary);
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+        checkIntervalRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (generatorRef.current) {
+        try {
+          generatorRef.current.container.innerHTML = '';
+        } catch (e) {
+          // Ignorer les erreurs de nettoyage
+        }
+      }
+    };
+  }, [containerRef, createInstance, setStatus]);
+
+  // Génération du donjon
+  const generateDungeon = useCallback((algorithm, params) => {
+    if (!generatorRef.current) {
+      setStatus('❌ Générateur non initialisé', 'error');
+      return Promise.reject(new Error('Générateur non initialisé'));
+    }
+
+    return new Promise((resolve) => {
+      try {
+        setIsLoading(true);
+        setStatus(`🔄 Génération avec ${algorithm}...`, 'info');
+        
+        const instance = generatorRef.current;
+        instance.generate(algorithm, params, false);
+        
+        updateHistoryState(instance);
+        
+        setIsLoading(false);
+        setStatus(`✅ Donjon généré avec succès! (${algorithm})`, 'success');
+        if (onGenerate) {
+          onGenerate(instance);
+        }
+        resolve(instance);
+      } catch (error) {
+        console.error('❌ Erreur de génération:', error);
+        setIsLoading(false);
+        setStatus(`❌ Erreur: ${error.message}`, 'error');
+        reject(error);
+      }
+    });
+  }, [setStatus, updateHistoryState, onGenerate]);
+
+  // Ajout d'une annotation
+  const addAnnotation = useCallback((x, y, text, color = '#ffd700', fontSize = 14) => {
+    if (!generatorRef.current) {
+      setStatus('❌ Générateur non initialisé', 'error');
+      return;
+    }
+    try {
+      generatorRef.current.addAnnotation(x, y, text, color, fontSize);
+      setStatus(`📝 Annotation ajoutée à (${x}, ${y})`, 'info');
+    } catch (error) {
+      console.error('❌ Erreur d\'annotation:', error);
+      setStatus(`❌ Erreur d'annotation: ${error.message}`, 'error');
+    }
+  }, [setStatus]);
+
+  // Annulation
+  const undo = useCallback(() => {
+    if (!generatorRef.current) {
+      setStatus('❌ Générateur non initialisé', 'error');
+      return;
+    }
+    try {
+      const success = generatorRef.current.undo();
+      if (success) {
+        updateHistoryState(generatorRef.current);
+        setStatus('↩️ Annulation effectuée', 'info');
       }
     } catch (error) {
-      onStatus?.(`Erreur d'impression: ${error.message}`, 'error');
+      console.error('❌ Erreur d\'annulation:', error);
+      setStatus(`❌ Erreur: ${error.message}`, 'error');
     }
-  };
+  }, [setStatus, updateHistoryState]);
 
-  const addCustomTile = (id, color, label, icon) => {
+  // Rétablissement
+  const redo = useCallback(() => {
     if (!generatorRef.current) {
-      onStatus?.('Générateur non initialisé', 'error');
+      setStatus('❌ Générateur non initialisé', 'error');
+      return;
+    }
+    try {
+      const success = generatorRef.current.redo();
+      if (success) {
+        updateHistoryState(generatorRef.current);
+        setStatus('↪️ Rétablissement effectué', 'info');
+      }
+    } catch (error) {
+      console.error('❌ Erreur de rétablissement:', error);
+      setStatus(`❌ Erreur: ${error.message}`, 'error');
+    }
+  }, [setStatus, updateHistoryState]);
+
+  // Export SVG
+  const exportSVG = useCallback(async (filename = 'donjon.svg') => {
+    if (!generatorRef.current) {
+      setStatus('❌ Générateur non initialisé', 'error');
       return;
     }
     
-    // Les tuiles personnalisées sont passées au constructeur
-    // On peut les ajouter dynamiquement via le registre interne
     try {
       const instance = generatorRef.current;
-      if (instance.tileRegistry) {
-        instance.tileRegistry[id] = { color, label, icon };
-        onStatus?.(`Tuile "${id}" ajoutée`, 'success');
+      
+      // Exporter localement
+      const success = instance.exportSVG(filename);
+      
+      if (success) {
+        setStatus(`📄 SVG exporté: ${filename}`, 'success');
+        
+        if (onExport) {
+          onExport({ type: 'svg', filename, data: null });
+        }
+        
+        // Récupérer le SVG pour la sauvegarde serveur
+        const svgElement = containerRef.current?.querySelector('svg');
+        if (svgElement) {
+          const svgData = new XMLSerializer().serializeToString(svgElement);
+          await saveToServer(svgData, filename, 'svg');
+        }
       } else {
-        throw new Error('Registre de tuiles non disponible');
+        setStatus('❌ Erreur lors de l\'export SVG', 'error');
       }
+      
     } catch (error) {
-      onStatus?.(`Erreur: ${error.message}`, 'error');
+      console.error('❌ Erreur d\'export SVG:', error);
+      setStatus(`❌ Erreur: ${error.message}`, 'error');
     }
-  };
+  }, [containerRef, setStatus, onExport, saveToServer]);
+
+  // Export PNG
+  const exportPNG = useCallback(async (filename = 'donjon.png') => {
+    if (!generatorRef.current) {
+      setStatus('❌ Générateur non initialisé', 'error');
+      return;
+    }
+    
+    try {
+      const instance = generatorRef.current;
+      
+      // Exporter localement
+      const success = await instance.exportPNG(filename);
+      
+      if (success) {
+        setStatus(`🖼️ PNG exporté: ${filename}`, 'success');
+        
+        if (onExport) {
+          onExport({ type: 'png', filename, data: null });
+        }
+        
+        // Récupérer le PNG pour la sauvegarde serveur
+        const pngData = await instance.getPNGData();
+        if (pngData) {
+          await saveToServer(pngData, filename, 'png');
+        }
+      } else {
+        setStatus('❌ Erreur lors de l\'export PNG', 'error');
+      }
+      
+    } catch (error) {
+      console.error('❌ Erreur d\'export PNG:', error);
+      setStatus(`❌ Erreur: ${error.message}`, 'error');
+    }
+  }, [setStatus, onExport, saveToServer]);
+
+  // Impression
+  const printDungeon = useCallback(() => {
+    if (!generatorRef.current) {
+      setStatus('❌ Générateur non initialisé', 'error');
+      return;
+    }
+    
+    try {
+      generatorRef.current.print();
+      setStatus('🖨️ Impression en cours...', 'info');
+    } catch (error) {
+      console.error('❌ Erreur d\'impression:', error);
+      setStatus(`❌ Erreur d'impression: ${error.message}`, 'error');
+    }
+  }, [setStatus]);
+
+  // Récupération des exports depuis le serveur
+  const getExports = useCallback(async () => {
+    try {
+      const response = await axios.get('/api/exports');
+      if (response.data.success) {
+        return response.data.exports;
+      }
+      return [];
+    } catch (error) {
+      console.error('❌ Erreur de récupération des exports:', error);
+      setStatus(`❌ Erreur: ${error.message}`, 'error');
+      return [];
+    }
+  }, [setStatus]);
+
+  // Suppression d'un export
+  const deleteExport = useCallback(async (filename) => {
+    try {
+      const response = await axios.delete(`/api/exports/${filename}`);
+      if (response.data.success) {
+        setStatus(`🗑️ Fichier supprimé: ${filename}`, 'info');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('❌ Erreur de suppression:', error);
+      setStatus(`❌ Erreur: ${error.message}`, 'error');
+      return false;
+    }
+  }, [setStatus]);
 
   return {
     isLoaded,
@@ -349,9 +376,10 @@ const DungeonGenerator = ({
     exportSVG,
     exportPNG,
     printDungeon,
-    addCustomTile,
+    getExports,
+    deleteExport,
     history
   };
 };
 
-export default DungeonGenerator;
+export default useDungeonGenerator;
