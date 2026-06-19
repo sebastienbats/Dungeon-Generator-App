@@ -153,14 +153,11 @@
 # Cloner le dépôt
 git clone https://github.com/sebastienbats/dungeon-generator-app.git
 cd dungeon-generator-app
-```
-
-### Installer les dépendances
-```bash
-# Backend
+# Installer les dépendances
+## Backend
 cd backend
 npm install
-# Frontend
+## Frontend
 cd ../frontend
 npm install
 # Télécharger la bibliothèque de génération
