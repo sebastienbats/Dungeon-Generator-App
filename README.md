@@ -173,47 +173,33 @@
 - npm 9 ou supérieur
 - Git (optionnel)
 
-### Cloner le projet
-
+### Script d'installation
 ```bash
+# Cloner le projet
 git clone https://github.com/sebastienbats/Dungeon-Generator-App.git
 cd Dungeon-Generator-App
-```
-
-### Installer les dépendances
-
-#### Backend
-
-```bash
+# Installer les dépendances
+## Backend
 cd backend
 npm install
-```
-
-#### Frontend
-
-```bash
+## Frontend
 cd ../frontend
 npm install
 ```
 
 ### Démarrer l'application
-
 #### Backend (port 5000)
-
 ```bash
 cd backend
 npm run dev      # Mode développement avec hot-reload
 # ou
 npm start        # Mode production
 ```
-
 #### Frontend (port 3000)
-
 ```bash
 cd frontend
 npm start
 ```
-
 L'application sera accessible sur `http://localhost:3000`.
 
 > **Note**: La bibliothèque de génération de donjons est intégrée directement dans `frontend/public/index.html`. Aucun téléchargement supplémentaire n'est nécessaire.
