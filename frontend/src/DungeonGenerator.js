@@ -20,6 +20,7 @@ const useDungeonGenerator = ({
   const checkIntervalRef = useRef(null);
   const timeoutRef = useRef(null);
   const isMountedRef = useRef(true);
+  const svgWrapperRef = useRef(null);
 
   // Wrapper pour onStatus
   const setStatus = useCallback((message, type = 'info') => {
@@ -67,15 +68,29 @@ const useDungeonGenerator = ({
   const safeCleanup = useCallback(() => {
     try {
       if (containerRef.current) {
-        // Supprimer uniquement les enfants créés par nous
-        while (containerRef.current.firstChild) {
+        // Supprimer uniquement les éléments SVG créés par nous
+        const svgElements = containerRef.current.querySelectorAll('svg');
+        svgElements.forEach(svg => {
           try {
-            containerRef.current.removeChild(containerRef.current.firstChild);
+            if (svg.parentNode === containerRef.current) {
+              containerRef.current.removeChild(svg);
+            }
           } catch (e) {
-            // Ignorer les erreurs de suppression
-            break;
+            // Ignorer
           }
-        }
+        });
+        
+        // Supprimer également les placeholders
+        const placeholders = containerRef.current.querySelectorAll('.dungeon-placeholder, .loading-overlay');
+        placeholders.forEach(el => {
+          try {
+            if (el.parentNode === containerRef.current) {
+              containerRef.current.removeChild(el);
+            }
+          } catch (e) {
+            // Ignorer
+          }
+        });
       }
     } catch (error) {
       // Ignorer les erreurs de nettoyage
@@ -101,8 +116,18 @@ const useDungeonGenerator = ({
       // Nettoyer le conteneur avant de créer l'instance
       safeCleanup();
 
+      // Créer un wrapper pour le SVG
+      const wrapper = document.createElement('div');
+      wrapper.style.width = '100%';
+      wrapper.style.height = '100%';
+      wrapper.style.display = 'flex';
+      wrapper.style.justifyContent = 'center';
+      wrapper.style.alignItems = 'center';
+      containerRef.current.appendChild(wrapper);
+      svgWrapperRef.current = wrapper;
+
       const instance = new window.DungeonGenerator({
-        container: containerRef.current,
+        container: wrapper,
         tileSize: 32,
         width: 50,
         height: 40,
@@ -177,9 +202,12 @@ const useDungeonGenerator = ({
 
     // Initialiser après le chargement du DOM
     if (document.readyState === 'complete') {
-      initLibrary();
+      // Petit délai pour que React ait fini de monter
+      setTimeout(initLibrary, 50);
     } else {
-      window.addEventListener('load', initLibrary);
+      window.addEventListener('load', () => {
+        setTimeout(initLibrary, 50);
+      });
     }
     
     return () => {
@@ -198,27 +226,28 @@ const useDungeonGenerator = ({
       // Nettoyer le générateur
       if (generatorRef.current) {
         try {
-          // Essayer de nettoyer le SVG
+          // Nettoyer le SVG
           if (generatorRef.current.svg && generatorRef.current.svg.parentNode) {
-            generatorRef.current.svg.parentNode.removeChild(generatorRef.current.svg);
+            try {
+              generatorRef.current.svg.parentNode.removeChild(generatorRef.current.svg);
+            } catch (e) {}
           }
-          // Vider le conteneur
-          if (containerRef.current) {
-            while (containerRef.current.firstChild) {
-              try {
-                containerRef.current.removeChild(containerRef.current.firstChild);
-              } catch (e) {
-                break;
-              }
-            }
-          }
-        } catch (e) {
-          // Ignorer les erreurs de nettoyage
-        }
+        } catch (e) {}
         generatorRef.current = null;
       }
+      
+      // Nettoyer le wrapper
+      if (svgWrapperRef.current && svgWrapperRef.current.parentNode) {
+        try {
+          svgWrapperRef.current.parentNode.removeChild(svgWrapperRef.current);
+        } catch (e) {}
+        svgWrapperRef.current = null;
+      }
+      
+      // Nettoyer le conteneur
+      safeCleanup();
     };
-  }, [containerRef, createInstance, setStatus]);
+  }, [containerRef, createInstance, setStatus, safeCleanup]);
 
   // Génération du donjon
   const generateDungeon = useCallback((algorithm, params) => {
