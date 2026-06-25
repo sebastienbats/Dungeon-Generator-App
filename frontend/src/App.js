@@ -1,7 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import DungeonControls from './DungeonControls';
 import DungeonViewer from './DungeonViewer';
-import useDungeonGenerator from './DungeonGenerator';
 
 function App() {
   const [status, setStatus] = useState({ message: 'Prêt à générer un donjon', type: 'info' });
@@ -9,7 +8,6 @@ function App() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
   const [exportsList, setExportsList] = useState([]);
-  const [dungeonInstance, setDungeonInstance] = useState(null);
   const isMountedRef = useRef(true);
   const generatorRef = useRef(null);
   
@@ -63,7 +61,6 @@ function App() {
   // Gestionnaire d'instance prête
   const handleInstanceReady = useCallback((instance) => {
     generatorRef.current = instance;
-    setDungeonInstance(instance);
     setIsLoaded(true);
     
     // Mettre à jour l'historique
