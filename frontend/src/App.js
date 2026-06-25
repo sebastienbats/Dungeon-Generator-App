@@ -3,6 +3,7 @@ import DungeonControls from './DungeonControls';
 import useDungeonGenerator from './DungeonGenerator';
 
 function App() {
+  // Utiliser un ref pour le conteneur
   const containerRef = useRef(null);
   const [status, setStatus] = useState({ message: 'Prêt à générer un donjon', type: 'info' });
   const [isLoading, setIsLoading] = useState(false);
@@ -113,7 +114,12 @@ function App() {
           isLoaded={isLoaded}
         />
 
-        <div className="dungeon-container" ref={containerRef}>
+        {/* Conteneur pour le donjon - avec key pour forcer le re-rendu */}
+        <div 
+          className="dungeon-container" 
+          ref={containerRef}
+          key="dungeon-container"
+        >
           {!isLoaded && (
             <div className="dungeon-placeholder">
               <span>🏗️</span>
@@ -121,7 +127,7 @@ function App() {
             </div>
           )}
           {isLoaded && (
-            <div className="dungeon-placeholder">
+            <div className="dungeon-placeholder" id="dungeon-placeholder">
               <span>🗺️</span>
               <p>Sélectionnez un algorithme et cliquez sur "Générer"</p>
               <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: '#555' }}>
