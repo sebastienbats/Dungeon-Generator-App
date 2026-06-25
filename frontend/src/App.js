@@ -10,7 +10,6 @@ function App() {
   const [exportsList, setExportsList] = useState([]);
   const isMountedRef = useRef(true);
   const generatorRef = useRef(null);
-  const viewerRef = useRef(null);
   
   const setStatusMessage = useCallback((message, type = 'info') => {
     if (isMountedRef.current) {
@@ -64,7 +63,6 @@ function App() {
     generatorRef.current = instance;
     setIsLoaded(true);
     
-    // Mettre à jour l'historique
     if (instance) {
       setHistory({
         canUndo: typeof instance.undo === 'function',
@@ -96,7 +94,6 @@ function App() {
       const instance = generatorRef.current;
       instance.generate(algorithm, params, false);
       
-      // Mettre à jour l'historique
       setHistory({
         canUndo: typeof instance.undo === 'function',
         canRedo: typeof instance.redo === 'function'
@@ -257,7 +254,6 @@ function App() {
         />
 
         <DungeonViewer
-          ref={viewerRef}
           onInstanceReady={handleInstanceReady}
           onStatus={setStatusMessage}
           isLoaded={isLoaded}
