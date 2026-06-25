@@ -120,10 +120,13 @@ const DungeonControls = ({
 
   const renderParamInput = useCallback((key, config) => {
     const value = params[key] !== undefined ? params[key] : config.default;
+    const inputId = `param-${key}`;
 
     if (config.options) {
       return (
         <select 
+          id={inputId}
+          name={key}
           value={value} 
           onChange={(e) => handleParamChange(key, e.target.value)}
           className="param-select"
@@ -139,6 +142,8 @@ const DungeonControls = ({
       <div className="param-input-group">
         <input
           type="range"
+          id={inputId}
+          name={key}
           min={config.min}
           max={config.max}
           step={config.step || 1}
@@ -152,11 +157,13 @@ const DungeonControls = ({
   }, [params, handleParamChange]);
 
   return (
-    <div className="dungeon-controls">
+    <div className="dungeon-controls" role="form" aria-label="Contrôles du générateur">
       <div className="controls-row">
         <div className="control-group">
-          <label>Algorithme</label>
+          <label htmlFor="algorithm-select">Algorithme</label>
           <select 
+            id="algorithm-select"
+            name="algorithm"
             value={selectedAlgo} 
             onChange={handleAlgoChange}
             className="algo-select"
@@ -173,7 +180,9 @@ const DungeonControls = ({
           <div className="params-grid">
             {Object.entries(ALGORITHMS[selectedAlgo]?.params || {}).map(([key, config]) => (
               <div key={key} className="param-item">
-                <span className="param-label">{config.label}</span>
+                <label htmlFor={`param-${key}`} className="param-label">
+                  {config.label}
+                </label>
                 {renderParamInput(key, config)}
               </div>
             ))}
@@ -202,34 +211,52 @@ const DungeonControls = ({
           </button>
           
           {showAnnotation && (
-            <div className="annotation-panel">
-              <input
-                type="number"
-                value={annotation.x}
-                onChange={(e) => setAnnotation({ ...annotation, x: parseInt(e.target.value) || 0 })}
-                placeholder="X"
-                className="annotation-input"
-              />
-              <input
-                type="number"
-                value={annotation.y}
-                onChange={(e) => setAnnotation({ ...annotation, y: parseInt(e.target.value) || 0 })}
-                placeholder="Y"
-                className="annotation-input"
-              />
-              <input
-                type="text"
-                value={annotation.text}
-                onChange={(e) => setAnnotation({ ...annotation, text: e.target.value })}
-                placeholder="Texte"
-                className="annotation-input text"
-              />
-              <input
-                type="color"
-                value={annotation.color}
-                onChange={(e) => setAnnotation({ ...annotation, color: e.target.value })}
-                className="annotation-color"
-              />
+            <div className="annotation-panel" role="group" aria-label="Ajout d'annotation">
+              <div className="annotation-field">
+                <label htmlFor="annotation-x">X</label>
+                <input
+                  id="annotation-x"
+                  name="annotation-x"
+                  type="number"
+                  value={annotation.x}
+                  onChange={(e) => setAnnotation({ ...annotation, x: parseInt(e.target.value) || 0 })}
+                  className="annotation-input"
+                />
+              </div>
+              <div className="annotation-field">
+                <label htmlFor="annotation-y">Y</label>
+                <input
+                  id="annotation-y"
+                  name="annotation-y"
+                  type="number"
+                  value={annotation.y}
+                  onChange={(e) => setAnnotation({ ...annotation, y: parseInt(e.target.value) || 0 })}
+                  className="annotation-input"
+                />
+              </div>
+              <div className="annotation-field">
+                <label htmlFor="annotation-text">Texte</label>
+                <input
+                  id="annotation-text"
+                  name="annotation-text"
+                  type="text"
+                  value={annotation.text}
+                  onChange={(e) => setAnnotation({ ...annotation, text: e.target.value })}
+                  placeholder="Texte"
+                  className="annotation-input text"
+                />
+              </div>
+              <div className="annotation-field">
+                <label htmlFor="annotation-color">Couleur</label>
+                <input
+                  id="annotation-color"
+                  name="annotation-color"
+                  type="color"
+                  value={annotation.color}
+                  onChange={(e) => setAnnotation({ ...annotation, color: e.target.value })}
+                  className="annotation-color"
+                />
+              </div>
               <button onClick={handleAnnotationAdd} className="btn btn-small btn-add">
                 Ajouter
               </button>
@@ -275,7 +302,7 @@ const DungeonControls = ({
       </div>
 
       {showExports && (
-        <div className="exports-panel">
+        <div className="exports-panel" role="list" aria-label="Liste des exports">
           <div className="exports-header">
             <span>📁 Exports sauvegardés ({exportsList?.length || 0})</span>
             <button 
@@ -289,7 +316,7 @@ const DungeonControls = ({
           <div className="exports-list">
             {exportsList && exportsList.length > 0 ? (
               exportsList.map((file) => (
-                <div key={file.name} className="export-item">
+                <div key={file.name} className="export-item" role="listitem">
                   <span className="export-name">{file.name}</span>
                   <span className="export-size">{file.sizeFormatted}</span>
                   <span className="export-date">{file.createdFormatted}</span>
@@ -299,6 +326,7 @@ const DungeonControls = ({
                       download={file.name}
                       className="btn btn-small"
                       style={{ background: '#00b894', color: '#fff' }}
+                      aria-label={`Télécharger ${file.name}`}
                     >
                       ⬇️
                     </a>
@@ -306,6 +334,7 @@ const DungeonControls = ({
                       onClick={() => onDeleteExport(file.name)}
                       className="btn btn-small"
                       style={{ background: '#d63031', color: '#fff' }}
+                      aria-label={`Supprimer ${file.name}`}
                     >
                       🗑️
                     </button>
@@ -313,7 +342,7 @@ const DungeonControls = ({
                 </div>
               ))
             ) : (
-              <div className="export-empty">
+              <div className="export-empty" role="status">
                 Aucun export sauvegardé pour le moment
               </div>
             )}
