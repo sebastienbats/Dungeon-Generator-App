@@ -190,6 +190,9 @@ const DungeonViewer = forwardRef(({
     }
     initAttemptedRef.current = true;
 
+    // Copier la référence de l'iframe pour le cleanup
+    const iframe = iframeRef.current;
+
     // Fonction d'initialisation après chargement de l'iframe
     const handleIframeLoad = () => {
       console.log('✅ Iframe chargé');
@@ -198,9 +201,9 @@ const DungeonViewer = forwardRef(({
       // Attendre que la bibliothèque soit disponible dans l'iframe
       const checkLibrary = () => {
         try {
-          const iframe = iframeRef.current;
-          if (iframe && iframe.contentWindow) {
-            if (typeof iframe.contentWindow.DungeonGenerator === 'function') {
+          const currentIframe = iframeRef.current;
+          if (currentIframe && currentIframe.contentWindow) {
+            if (typeof currentIframe.contentWindow.DungeonGenerator === 'function') {
               console.log('✅ Bibliothèque disponible dans l\'iframe');
               initGenerator();
               return;
@@ -219,7 +222,6 @@ const DungeonViewer = forwardRef(({
     };
 
     // Si l'iframe est déjà chargé
-    const iframe = iframeRef.current;
     if (iframe && iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
       console.log('✅ Iframe déjà chargé');
       setTimeout(handleIframeLoad, 100);
@@ -232,7 +234,6 @@ const DungeonViewer = forwardRef(({
     const timeoutId = setTimeout(() => {
       if (!isLoaded && !initError) {
         console.log('⏰ Timeout: Forçage de l\'initialisation');
-        // Forcer l'initialisation même si l'iframe n'est pas chargé
         initGenerator();
       }
     }, 5000);
@@ -242,7 +243,7 @@ const DungeonViewer = forwardRef(({
       isMountedRef.current = false;
       clearTimeout(timeoutId);
       
-      const iframe = iframeRef.current;
+      // Utiliser la référence copiée pour le cleanup
       if (iframe) {
         iframe.removeEventListener('load', handleIframeLoad);
       }
@@ -286,10 +287,8 @@ const DungeonViewer = forwardRef(({
           <html>
             <head>
               <script>
-                // Charger la bibliothèque depuis le parent
                 (function() {
                   try {
-                    // Copier la bibliothèque depuis le parent
                     if (window.parent && window.parent.DungeonGenerator) {
                       window.DungeonGenerator = window.parent.DungeonGenerator;
                       console.log('✅ Bibliothèque copiée depuis le parent');
@@ -340,26 +339,6 @@ const DungeonViewer = forwardRef(({
         `}
       />
       
-      {!isLoaded && !externalIsLoaded && !initError && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          color: '#555',
-          textAlign: 'center',
-          padding: '3rem',
-          pointerEvents: 'none',
-          display: 'none' // Caché car l'iframe affiche déjà le message
-        }}>
-          <span style={{ fontSize: '4rem', display: 'block', marginBottom: '1rem' }}>🏗️</span>
-          <p>Chargement du générateur...</p>
-          <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: '#444' }}>
-            Tentative {Math.min(initAttempts + 1, 10)}/10
-          </p>
-        </div>
-      )}
-
       {initError && (
         <div style={{ 
           position: 'absolute',
