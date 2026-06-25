@@ -6,10 +6,12 @@ function App() {
   const [status, setStatus] = useState({ message: 'Prêt à générer un donjon', type: 'info' });
   const [isLoading, setIsLoading] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [initError, setInitError] = useState(null);
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
   const [exportsList, setExportsList] = useState([]);
   const isMountedRef = useRef(true);
   const generatorRef = useRef(null);
+  const forceInitTimeoutRef = useRef(null);
   
   const setStatusMessage = useCallback((message, type = 'info') => {
     if (isMountedRef.current) {
@@ -62,6 +64,7 @@ function App() {
   const handleInstanceReady = useCallback((instance) => {
     generatorRef.current = instance;
     setIsLoaded(true);
+    setInitError(null);
     
     if (instance) {
       setHistory({
@@ -71,13 +74,123 @@ function App() {
     }
   }, []);
 
+  // Gestionnaire d'erreur d'initialisation
+  const handleInitError = useCallback((error) => {
+    setInitError(error);
+    setStatusMessage(`❌ Erreur d'initialisation: ${error}`, 'error');
+  }, [setStatusMessage]);
+
   // Charger les exports au démarrage
   useEffect(() => {
     isMountedRef.current = true;
+    
+    // Si le générateur est chargé, charger les exports
+    if (isLoaded) {
+      refreshExports();
+    }
+    
     return () => {
       isMountedRef.current = false;
+      if (forceInitTimeoutRef.current) {
+        clearTimeout(forceInitTimeoutRef.current);
+        forceInitTimeoutRef.current = null;
+      }
     };
-  }, []);
+  }, [isLoaded, refreshExports]);
+
+  // Forcer l'initialisation après un délai si le générateur n'est pas chargé
+  useEffect(() => {
+    // Nettoyer le timeout précédent
+    if (forceInitTimeoutRef.current) {
+      clearTimeout(forceInitTimeoutRef.current);
+      forceInitTimeoutRef.current = null;
+    }
+
+    // Si déjà chargé ou en erreur, ne pas forcer
+    if (isLoaded || initError) {
+      return;
+    }
+
+    console.log('⏰ Planification du forçage d\'initialisation dans 5 secondes...');
+
+    // Forcer l'initialisation après 5 secondes
+    forceInitTimeoutRef.current = setTimeout(() => {
+      if (!isLoaded && !initError && isMountedRef.current) {
+        console.log('⏰ Forçage de l\'initialisation depuis App');
+        
+        // Vérifier si les outils de diagnostic sont disponibles
+        if (window.diagnostic && typeof window.diagnostic.forceInit === 'function') {
+          window.diagnostic.forceInit();
+        } else {
+          console.warn('⚠️ Outils de diagnostic non disponibles, tentative manuelle...');
+          
+          // Tentative manuelle
+          const viewer = document.querySelector('.dungeon-viewer');
+          if (viewer && typeof window.DungeonGenerator === 'function') {
+            try {
+              // Nettoyer le conteneur
+              while (viewer.firstChild) {
+                try {
+                  viewer.removeChild(viewer.firstChild);
+                } catch (e) {
+                  break;
+                }
+              }
+              
+              // Créer un wrapper
+              const wrapper = document.createElement('div');
+              wrapper.id = 'dungeon-wrapper';
+              wrapper.style.width = '100%';
+              wrapper.style.height = '100%';
+              wrapper.style.minHeight = '400px';
+              wrapper.style.display = 'flex';
+              wrapper.style.justifyContent = 'center';
+              wrapper.style.alignItems = 'center';
+              wrapper.style.position = 'relative';
+              viewer.appendChild(wrapper);
+              
+              // Créer l'instance
+              const instance = new window.DungeonGenerator({
+                container: wrapper,
+                tileSize: 32,
+                width: 50,
+                height: 40,
+                customTileTypes: [
+                  { id: 'tresor', color: '#f1c40f', label: 'Trésor', icon: '💰' },
+                  { id: 'piege', color: '#e74c3c', label: 'Piège', icon: '⚔️' },
+                  { id: 'portail', color: '#8e44ad', label: 'Portail', icon: '🌀' }
+                ]
+              });
+              
+              if (instance && typeof instance.generate === 'function') {
+                generatorRef.current = instance;
+                setIsLoaded(true);
+                setInitError(null);
+                setHistory({
+                  canUndo: typeof instance.undo === 'function',
+                  canRedo: typeof instance.redo === 'function'
+                });
+                setStatusMessage('✅ Prêt (forcé)', 'success');
+                console.log('✅ Instance créée manuellement avec succès');
+              }
+            } catch (error) {
+              console.error('❌ Erreur lors de la création manuelle:', error);
+              setStatusMessage(`❌ Erreur: ${error.message}`, 'error');
+            }
+          } else {
+            console.warn('⚠️ Impossible de créer l\'instance manuellement');
+          }
+        }
+      }
+    }, 5000);
+
+    return () => {
+      if (forceInitTimeoutRef.current) {
+        clearTimeout(forceInitTimeoutRef.current);
+        forceInitTimeoutRef.current = null;
+      }
+    };
+  }, [isLoaded, initError, setStatusMessage]);
 
   // Génération du donjon
   const handleGenerate = useCallback(async (algorithm, params) => {
