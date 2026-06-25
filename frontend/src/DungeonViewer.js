@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 /**
  * DungeonViewer - Composant dédié au rendu du donjon
- * Isolé du reste de l'application pour éviter les conflits DOM
+ * Version avec diagnostic amélioré pour résoudre les problèmes d'initialisation
  */
 const DungeonViewer = ({ 
   onInstanceReady, 
@@ -14,35 +14,26 @@ const DungeonViewer = ({
   const [isLoaded, setIsLoaded] = useState(false);
   const [dungeonInstance, setDungeonInstance] = useState(null);
   const [initError, setInitError] = useState(null);
+  const [initAttempts, setInitAttempts] = useState(0);
   const generatorRef = useRef(null);
   const isMountedRef = useRef(true);
   const initAttemptedRef = useRef(false);
   const cleanupRef = useRef(null);
-  const retryCountRef = useRef(0);
-  const maxRetries = 10;
 
   // Fonction de nettoyage sécurisée
   const safeCleanup = useCallback((container) => {
     if (!container) return;
     
     try {
-      // Nettoyer le générateur
       if (generatorRef.current) {
         try {
           if (generatorRef.current.svg && generatorRef.current.svg.parentNode) {
-            try {
-              generatorRef.current.svg.parentNode.removeChild(generatorRef.current.svg);
-            } catch (e) {
-              // Ignorer
-            }
+            generatorRef.current.svg.parentNode.removeChild(generatorRef.current.svg);
           }
-        } catch (e) {
-          // Ignorer
-        }
+        } catch (e) {}
         generatorRef.current = null;
       }
       
-      // Nettoyer le conteneur
       while (container.firstChild) {
         try {
           container.removeChild(container.firstChild);
@@ -50,57 +41,53 @@ const DungeonViewer = ({
           break;
         }
       }
-    } catch (e) {
-      // Ignorer les erreurs de nettoyage
-    }
+    } catch (e) {}
   }, []);
 
   // Initialiser le générateur
   const initGenerator = useCallback(() => {
     try {
+      setInitAttempts(prev => prev + 1);
+      
       if (!isMountedRef.current) {
-        console.log('🔴 Composant démonté, arrêt de l\'initialisation');
+        console.log('🔴 Composant démonté');
         return;
       }
 
       const container = containerRef.current;
       if (!container) {
         console.warn('⚠️ Container non disponible');
+        setTimeout(initGenerator, 500);
         return;
       }
 
-      // Vérifier que la bibliothèque est disponible
+      console.log(`🔄 Tentative d'initialisation #${initAttempts + 1}`);
+
+      // Vérifier la bibliothèque
       if (typeof window.DungeonGenerator !== 'function') {
-        console.warn(`⏳ DungeonGenerator pas encore chargé (tentative ${retryCountRef.current + 1}/${maxRetries})...`);
-        
-        if (retryCountRef.current < maxRetries) {
-          retryCountRef.current++;
-          setTimeout(initGenerator, 300);
-        } else {
-          setInitError('La bibliothèque DungeonGenerator n\'a pas pu être chargée');
-          if (onStatus) {
-            onStatus('❌ La bibliothèque DungeonGenerator n\'a pas été trouvée', 'error');
-          }
-        }
+        console.warn('⏳ DungeonGenerator non disponible');
+        // Réessayer après un délai
+        setTimeout(initGenerator, 500);
         return;
       }
 
-      // Nettoyer le conteneur avant de créer l'instance
+      // Nettoyer le conteneur
       safeCleanup(container);
 
-      // Créer le wrapper
+      // Créer un wrapper avec un ID pour le débogage
       const wrapper = document.createElement('div');
+      wrapper.id = 'dungeon-wrapper';
       wrapper.style.width = '100%';
       wrapper.style.height = '100%';
       wrapper.style.display = 'flex';
       wrapper.style.justifyContent = 'center';
       wrapper.style.alignItems = 'center';
       wrapper.style.minHeight = '400px';
-      wrapper.id = 'dungeon-wrapper';
       container.appendChild(wrapper);
 
-      // Créer l'instance
       console.log('🏗️ Création de l\'instance DungeonGenerator...');
+      
+      // Créer l'instance avec des options
       const instance = new window.DungeonGenerator({
         container: wrapper,
         tileSize: 32,
@@ -115,6 +102,11 @@ const DungeonViewer = ({
         ]
       });
 
+      // Vérifier que l'instance est valide
+      if (!instance || typeof instance.generate !== 'function') {
+        throw new Error('L\'instance DungeonGenerator n\'est pas valide');
+      }
+
       generatorRef.current = instance;
       setDungeonInstance(instance);
       setIsLoaded(true);
@@ -128,43 +120,49 @@ const DungeonViewer = ({
       }
 
       console.log('✅ DungeonGenerator initialisé avec succès');
+      console.log('📐 Dimensions:', instance.width, 'x', instance.height);
 
     } catch (error) {
-      console.error('❌ Erreur d\'initialisation:', error);
+      console.error('❌ Erreur:', error);
       setInitError(error.message);
       if (onStatus) {
         onStatus(`❌ Erreur: ${error.message}`, 'error');
       }
       
-      // Réessayer après un délai si le composant est toujours monté
-      if (isMountedRef.current && retryCountRef.current < maxRetries) {
-        retryCountRef.current++;
+      // Réessayer si moins de 10 tentatives
+      if (initAttempts < 10 && isMountedRef.current) {
         setTimeout(initGenerator, 1000);
       }
     }
-  }, [onInstanceReady, onStatus, safeCleanup]);
+  }, [onInstanceReady, onStatus, safeCleanup, initAttempts]);
 
   // Effet principal d'initialisation
   useEffect(() => {
     isMountedRef.current = true;
     
-    // Éviter les initialisations multiples
     if (initAttemptedRef.current) {
       return;
     }
     initAttemptedRef.current = true;
 
-    // Copier la référence du conteneur pour le cleanup
     cleanupRef.current = containerRef.current;
 
-    // Démarrer l'initialisation
-    const initTimeout = setTimeout(initGenerator, 100);
+    // Attendre que le DOM soit complètement chargé
+    const startInit = () => {
+      console.log('🚀 Démarrage de l\'initialisation');
+      initGenerator();
+    };
+
+    if (document.readyState === 'complete') {
+      setTimeout(startInit, 200);
+    } else {
+      window.addEventListener('load', startInit);
+    }
 
     return () => {
       isMountedRef.current = false;
-      clearTimeout(initTimeout);
+      window.removeEventListener('load', startInit);
       
-      // Nettoyer avec la référence copiée
       if (cleanupRef.current) {
         safeCleanup(cleanupRef.current);
       }
@@ -172,22 +170,13 @@ const DungeonViewer = ({
     };
   }, [initGenerator, safeCleanup]);
 
-  // Exposer l'instance via la prop onInstanceReady
-  useEffect(() => {
-    if (dungeonInstance && onInstanceReady) {
-      onInstanceReady(dungeonInstance);
-    }
-  }, [dungeonInstance, onInstanceReady]);
-
   // Forcer le rendu quand externalIsLoaded change
   useEffect(() => {
-    if (externalIsLoaded && !isLoaded && !initError) {
-      // Si le composant parent est chargé mais pas nous, réessayer
-      if (retryCountRef.current < maxRetries) {
-        initGenerator();
-      }
+    if (externalIsLoaded && !isLoaded && !initError && initAttempts < 10) {
+      console.log('🔄 Re-initialisation forcée');
+      initGenerator();
     }
-  }, [externalIsLoaded, isLoaded, initError, initGenerator]);
+  }, [externalIsLoaded, isLoaded, initError, initAttempts, initGenerator]);
 
   return (
     <div 
@@ -206,7 +195,6 @@ const DungeonViewer = ({
         overflow: 'hidden'
       }}
     >
-      {/* État de chargement */}
       {!isLoaded && !externalIsLoaded && !initError && (
         <div className="dungeon-placeholder" style={{ 
           color: '#555',
@@ -217,12 +205,29 @@ const DungeonViewer = ({
           <span style={{ fontSize: '4rem', display: 'block', marginBottom: '1rem' }}>🏗️</span>
           <p>Chargement du générateur...</p>
           <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: '#444' }}>
-            Tentative {retryCountRef.current + 1}/{maxRetries}
+            Tentative {initAttempts + 1}/10
           </p>
+          <div style={{ 
+            marginTop: '1rem',
+            width: '200px',
+            height: '4px',
+            background: '#2a2a4a',
+            borderRadius: '2px',
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${(initAttempts / 10) * 100}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #f7971e, #ffd200)',
+              borderRadius: '2px',
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
         </div>
       )}
 
-      {/* Erreur d'initialisation */}
       {initError && (
         <div style={{ 
           color: '#d63031',
@@ -235,7 +240,7 @@ const DungeonViewer = ({
           <p style={{ fontSize: '0.9rem', color: '#888' }}>{initError}</p>
           <button 
             onClick={() => {
-              retryCountRef.current = 0;
+              setInitAttempts(0);
               setInitError(null);
               initGenerator();
             }}
@@ -246,7 +251,8 @@ const DungeonViewer = ({
               color: '#fff',
               border: 'none',
               borderRadius: '8px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: '1rem'
             }}
           >
             🔄 Réessayer
@@ -254,7 +260,6 @@ const DungeonViewer = ({
         </div>
       )}
 
-      {/* Overlay de chargement pendant la génération */}
       {externalIsLoading && isLoaded && (
         <div className="loading-overlay" style={{
           position: 'absolute',
