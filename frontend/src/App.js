@@ -10,6 +10,7 @@ function App() {
   const [exportsList, setExportsList] = useState([]);
   const isMountedRef = useRef(true);
   const generatorRef = useRef(null);
+  const viewerRef = useRef(null);
   
   const setStatusMessage = useCallback((message, type = 'info') => {
     if (isMountedRef.current) {
@@ -60,6 +61,7 @@ function App() {
 
   // Gestionnaire d'instance prête
   const handleInstanceReady = useCallback((instance) => {
+    console.log('📦 Instance prête dans App');
     generatorRef.current = instance;
     setIsLoaded(true);
     
@@ -69,18 +71,88 @@ function App() {
         canRedo: typeof instance.redo === 'function'
       });
     }
-  }, []);
+    
+    // Rafraîchir les exports
+    refreshExports();
+  }, [refreshExports]);
 
   // Charger les exports au démarrage
   useEffect(() => {
     isMountedRef.current = true;
-    if (isLoaded) {
-      refreshExports();
-    }
     return () => {
       isMountedRef.current = false;
     };
-  }, [isLoaded, refreshExports]);
+  }, []);
+
+  // Forcer l'initialisation si le viewer ne se charge pas
+  useEffect(() => {
+    // Si déjà chargé, ne rien faire
+    if (isLoaded) return;
+
+    console.log('⏰ Vérification de l\'état du viewer...');
+
+    // Vérifier après 3 secondes
+    const checkInterval = setInterval(() => {
+      if (isLoaded) {
+        clearInterval(checkInterval);
+        return;
+      }
+
+      // Vérifier si le viewer a une instance
+      if (viewerRef.current && viewerRef.current.generator) {
+        console.log('✅ Instance trouvée dans le viewer, mise à jour de l\'état');
+        const instance = viewerRef.current.generator;
+        generatorRef.current = instance;
+        setIsLoaded(true);
+        setHistory({
+          canUndo: typeof instance.undo === 'function',
+          canRedo: typeof instance.redo === 'function'
+        });
+        setStatusMessage('✅ Prêt', 'success');
+        refreshExports();
+        clearInterval(checkInterval);
+        return;
+      }
+
+      // Si le viewer a une méthode retry, l'appeler
+      if (viewerRef.current && viewerRef.current.retry) {
+        console.log('🔄 Tentative de réinitialisation du viewer');
+        viewerRef.current.retry();
+      }
+    }, 1000);
+
+    // Timeout de secours
+    const timeoutId = setTimeout(() => {
+      clearInterval(checkInterval);
+      if (!isLoaded) {
+        console.log('⏰ Timeout: Forçage manuel de l\'initialisation');
+        if (viewerRef.current && viewerRef.current.retry) {
+          viewerRef.current.retry();
+        } else if (window.diagnostic && window.diagnostic.forceInit) {
+          window.diagnostic.forceInit();
+          // Vérifier si l'initialisation a réussi
+          setTimeout(() => {
+            if (window.__dungeonInstance) {
+              console.log('✅ Instance créée par diagnostic.forceInit()');
+              generatorRef.current = window.__dungeonInstance;
+              setIsLoaded(true);
+              setHistory({
+                canUndo: typeof window.__dungeonInstance.undo === 'function',
+                canRedo: typeof window.__dungeonInstance.redo === 'function'
+              });
+              setStatusMessage('✅ Prêt', 'success');
+              refreshExports();
+            }
+          }, 1000);
+        }
+      }
+    }, 8000);
+
+    return () => {
+      clearInterval(checkInterval);
+      clearTimeout(timeoutId);
+    };
+  }, [isLoaded, refreshExports, setStatusMessage]);
 
   // Génération du donjon
   const handleGenerate = useCallback(async (algorithm, params) => {
@@ -257,6 +329,7 @@ function App() {
         />
 
         <DungeonViewer
+          ref={viewerRef}
           onInstanceReady={handleInstanceReady}
           onStatus={setStatusMessage}
           isLoaded={isLoaded}
