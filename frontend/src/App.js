@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import DungeonControls from './DungeonControls';
 import useDungeonGenerator from './DungeonGenerator';
 
@@ -8,9 +8,12 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
   const [exportsList, setExportsList] = useState([]);
+  const isMountedRef = useRef(true);
   
   const setStatusMessage = useCallback((message, type = 'info') => {
-    setStatus({ message, type });
+    if (isMountedRef.current) {
+      setStatus({ message, type });
+    }
   }, []);
 
   const {
@@ -29,43 +32,53 @@ function App() {
     containerRef,
     onGenerate: () => {},
     onExport: () => {
-      // Rafraîchir la liste des exports après un export
-      refreshExports();
+      if (isMountedRef.current) {
+        refreshExports();
+      }
     },
     onStatus: setStatusMessage
   });
 
   // Mettre à jour l'état de l'historique
-  React.useEffect(() => {
-    if (historyState) {
+  useEffect(() => {
+    if (historyState && isMountedRef.current) {
       setHistory(historyState);
     }
   }, [historyState]);
 
   // Rafraîchir la liste des exports
   const refreshExports = useCallback(async () => {
+    if (!isMountedRef.current) return;
     const exports = await getExports();
-    if (exports) {
+    if (exports && isMountedRef.current) {
       setExportsList(exports);
     }
   }, [getExports]);
 
   // Charger les exports au démarrage
-  React.useEffect(() => {
+  useEffect(() => {
+    isMountedRef.current = true;
     if (isLoaded) {
       refreshExports();
     }
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [isLoaded, refreshExports]);
 
   const handleGenerate = useCallback(async (algorithm, params) => {
+    if (!isMountedRef.current) return;
     setIsLoading(true);
     await generateDungeon(algorithm, params);
-    setIsLoading(false);
+    if (isMountedRef.current) {
+      setIsLoading(false);
+    }
   }, [generateDungeon]);
 
   const handleDeleteExport = useCallback(async (filename) => {
+    if (!isMountedRef.current) return;
     const success = await deleteExport(filename);
-    if (success) {
+    if (success && isMountedRef.current) {
       refreshExports();
     }
   }, [deleteExport, refreshExports]);
