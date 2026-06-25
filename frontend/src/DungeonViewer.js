@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, forwardRef } from 'rea
 
 /**
  * DungeonViewer - Composant dédié au rendu du donjon
- * Version avec logs détaillés pour le diagnostic
+ * Version avec gestion robuste du cycle de vie
  */
 const DungeonViewer = forwardRef(({ 
   onInstanceReady, 
@@ -18,6 +18,8 @@ const DungeonViewer = forwardRef(({
   const isMountedRef = useRef(true);
   const initAttemptedRef = useRef(false);
   const wrapperRef = useRef(null);
+  const initTimeoutRef = useRef(null);
+  const cleanupTimeoutRef = useRef(null);
 
   console.log('🔄 DungeonViewer monté');
 
@@ -91,7 +93,9 @@ const DungeonViewer = forwardRef(({
     const container = containerRef.current;
     if (!container) {
       console.warn('⚠️ Container non disponible');
-      setTimeout(initGenerator, 500);
+      if (attempt < 10) {
+        initTimeoutRef.current = setTimeout(initGenerator, 500);
+      }
       return;
     }
 
@@ -99,8 +103,10 @@ const DungeonViewer = forwardRef(({
     console.log('  - window.DungeonGenerator:', typeof window.DungeonGenerator);
 
     if (typeof window.DungeonGenerator !== 'function') {
-      console.warn('⏳ DungeonGenerator non disponible, réessai dans 500ms');
-      setTimeout(initGenerator, 500);
+      console.warn('⏳ DungeonGenerator non disponible');
+      if (attempt < 10) {
+        initTimeoutRef.current = setTimeout(initGenerator, 500);
+      }
       return;
     }
 
@@ -163,7 +169,7 @@ const DungeonViewer = forwardRef(({
       }
 
       // Vérifier le SVG après un délai
-      setTimeout(() => {
+      cleanupTimeoutRef.current = setTimeout(() => {
         const svgInWrapper = wrapper.querySelector('svg');
         console.log('🔍 Vérification SVG après initialisation:');
         console.log('  - SVG dans le wrapper:', !!svgInWrapper);
@@ -182,42 +188,39 @@ const DungeonViewer = forwardRef(({
       
       if (attempt < 10 && isMountedRef.current) {
         console.log(`🔄 Nouvelle tentative dans 1s (${attempt}/10)`);
-        setTimeout(initGenerator, 1000);
+        initTimeoutRef.current = setTimeout(initGenerator, 1000);
       }
     }
   }, [onInstanceReady, onStatus, safeCleanup, initAttempts]);
 
-  // Effet principal d'initialisation
+  // Initialisation immédiate sans attendre le DOM
   useEffect(() => {
     console.log('📦 useEffect principal - montage');
     isMountedRef.current = true;
     
-    if (initAttemptedRef.current) {
-      console.log('  - Initialisation déjà tentée');
-      return;
-    }
-    initAttemptedRef.current = true;
-
+    // Démarrer l'initialisation immédiatement
     const startInit = () => {
-      console.log('🚀 Démarrage de l\'initialisation');
-      setTimeout(initGenerator, 300);
+      console.log('🚀 Démarrage immédiat de l\'initialisation');
+      initGenerator();
     };
 
-    if (document.readyState === 'complete') {
-      console.log('  - DOM déjà chargé');
-      startInit();
-    } else {
-      console.log('  - Attente du chargement du DOM');
-      window.addEventListener('load', startInit);
-    }
+    // Démarrer après un court délai pour permettre au DOM de se stabiliser
+    initTimeoutRef.current = setTimeout(startInit, 100);
 
     return () => {
       console.log('🧹 Nettoyage du useEffect');
       isMountedRef.current = false;
-      window.removeEventListener('load', startInit);
-      safeCleanup();
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current);
+        initTimeoutRef.current = null;
+      }
+      if (cleanupTimeoutRef.current) {
+        clearTimeout(cleanupTimeoutRef.current);
+        cleanupTimeoutRef.current = null;
+      }
+      // Ne pas nettoyer le conteneur ici pour éviter les conflits
     };
-  }, [initGenerator, safeCleanup]);
+  }, [initGenerator]);
 
   return (
     <div 
