@@ -1,15 +1,17 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import DungeonControls from './DungeonControls';
+import DungeonViewer from './DungeonViewer';
 import useDungeonGenerator from './DungeonGenerator';
 
 function App() {
-  // Utiliser un ref pour le conteneur
-  const containerRef = useRef(null);
   const [status, setStatus] = useState({ message: 'Prêt à générer un donjon', type: 'info' });
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
   const [exportsList, setExportsList] = useState([]);
+  const [dungeonInstance, setDungeonInstance] = useState(null);
   const isMountedRef = useRef(true);
+  const generatorRef = useRef(null);
   
   const setStatusMessage = useCallback((message, type = 'info') => {
     if (isMountedRef.current) {
@@ -17,35 +19,37 @@ function App() {
     }
   }, []);
 
-  const {
-    isLoaded,
-    generateDungeon,
-    addAnnotation,
-    undo,
-    redo,
-    exportSVG,
-    exportPNG,
-    printDungeon,
-    getExports,
-    deleteExport,
-    history: historyState
-  } = useDungeonGenerator({
-    containerRef,
-    onGenerate: () => {},
-    onExport: () => {
-      if (isMountedRef.current) {
-        refreshExports();
+  // Récupérer les exports
+  const getExports = useCallback(async () => {
+    try {
+      const response = await fetch('/api/exports');
+      const data = await response.json();
+      if (data.success) {
+        return data.exports;
       }
-    },
-    onStatus: setStatusMessage
-  });
-
-  // Mettre à jour l'état de l'historique
-  useEffect(() => {
-    if (historyState && isMountedRef.current) {
-      setHistory(historyState);
+      return [];
+    } catch (error) {
+      console.error('❌ Erreur de récupération des exports:', error);
+      return [];
     }
-  }, [historyState]);
+  }, []);
+
+  // Supprimer un export
+  const deleteExport = useCallback(async (filename) => {
+    try {
+      const response = await fetch(`/api/exports/${filename}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (data.success) {
+        setStatusMessage(`🗑️ Fichier supprimé: ${filename}`, 'info');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('❌ Erreur de suppression:', error);
+      setStatusMessage(`❌ Erreur: ${error.message}`, 'error');
+      return false;
+    }
+  }, [setStatusMessage]);
 
   // Rafraîchir la liste des exports
   const refreshExports = useCallback(async () => {
@@ -55,6 +59,21 @@ function App() {
       setExportsList(exports);
     }
   }, [getExports]);
+
+  // Gestionnaire d'instance prête
+  const handleInstanceReady = useCallback((instance) => {
+    generatorRef.current = instance;
+    setDungeonInstance(instance);
+    setIsLoaded(true);
+    
+    // Mettre à jour l'historique
+    if (instance) {
+      setHistory({
+        canUndo: typeof instance.undo === 'function',
+        canRedo: typeof instance.redo === 'function'
+      });
+    }
+  }, []);
 
   // Charger les exports au démarrage
   useEffect(() => {
@@ -67,19 +86,146 @@ function App() {
     };
   }, [isLoaded, refreshExports]);
 
+  // Génération du donjon
   const handleGenerate = useCallback(async (algorithm, params) => {
     if (!isMountedRef.current) return;
-    setIsLoading(true);
-    await generateDungeon(algorithm, params);
-    if (isMountedRef.current) {
-      setIsLoading(false);
+    if (!generatorRef.current) {
+      setStatusMessage('❌ Générateur non initialisé', 'error');
+      return;
     }
-  }, [generateDungeon]);
 
+    setIsLoading(true);
+    setStatusMessage(`🔄 Génération avec ${algorithm}...`, 'info');
+    
+    try {
+      const instance = generatorRef.current;
+      instance.generate(algorithm, params, false);
+      
+      // Mettre à jour l'historique
+      setHistory({
+        canUndo: typeof instance.undo === 'function',
+        canRedo: typeof instance.redo === 'function'
+      });
+      
+      if (isMountedRef.current) {
+        setStatusMessage(`✅ Donjon généré avec succès! (${algorithm})`, 'success');
+      }
+    } catch (error) {
+      console.error('❌ Erreur de génération:', error);
+      if (isMountedRef.current) {
+        setStatusMessage(`❌ Erreur: ${error.message}`, 'error');
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [setStatusMessage]);
+
+  // Ajout d'une annotation
+  const handleAddAnnotation = useCallback((x, y, text, color = '#ffd700', fontSize = 14) => {
+    if (!generatorRef.current) {
+      setStatusMessage('❌ Générateur non initialisé', 'error');
+      return;
+    }
+    try {
+      generatorRef.current.addAnnotation(x, y, text, color, fontSize);
+      setStatusMessage(`📝 Annotation ajoutée à (${x}, ${y})`, 'info');
+    } catch (error) {
+      console.error('❌ Erreur d\'annotation:', error);
+      setStatusMessage(`❌ Erreur: ${error.message}`, 'error');
+    }
+  }, [setStatusMessage]);
+
+  // Annulation
+  const handleUndo = useCallback(() => {
+    if (!generatorRef.current) return;
+    try {
+      const success = generatorRef.current.undo();
+      if (success) {
+        setHistory({
+          canUndo: typeof generatorRef.current.undo === 'function',
+          canRedo: typeof generatorRef.current.redo === 'function'
+        });
+        setStatusMessage('↩️ Annulation effectuée', 'info');
+      }
+    } catch (error) {
+      console.error('❌ Erreur d\'annulation:', error);
+      setStatusMessage(`❌ Erreur: ${error.message}`, 'error');
+    }
+  }, [setStatusMessage]);
+
+  // Rétablissement
+  const handleRedo = useCallback(() => {
+    if (!generatorRef.current) return;
+    try {
+      const success = generatorRef.current.redo();
+      if (success) {
+        setHistory({
+          canUndo: typeof generatorRef.current.undo === 'function',
+          canRedo: typeof generatorRef.current.redo === 'function'
+        });
+        setStatusMessage('↪️ Rétablissement effectué', 'info');
+      }
+    } catch (error) {
+      console.error('❌ Erreur de rétablissement:', error);
+      setStatusMessage(`❌ Erreur: ${error.message}`, 'error');
+    }
+  }, [setStatusMessage]);
+
+  // Export SVG
+  const handleExportSVG = useCallback(() => {
+    if (!generatorRef.current) {
+      setStatusMessage('❌ Générateur non initialisé', 'error');
+      return;
+    }
+    try {
+      const filename = `donjon_${Date.now()}.svg`;
+      generatorRef.current.exportSVG(filename);
+      setStatusMessage(`📄 SVG exporté: ${filename}`, 'success');
+      refreshExports();
+    } catch (error) {
+      console.error('❌ Erreur d\'export SVG:', error);
+      setStatusMessage(`❌ Erreur: ${error.message}`, 'error');
+    }
+  }, [setStatusMessage, refreshExports]);
+
+  // Export PNG
+  const handleExportPNG = useCallback(async () => {
+    if (!generatorRef.current) {
+      setStatusMessage('❌ Générateur non initialisé', 'error');
+      return;
+    }
+    try {
+      const filename = `donjon_${Date.now()}.png`;
+      await generatorRef.current.exportPNG(filename);
+      setStatusMessage(`🖼️ PNG exporté: ${filename}`, 'success');
+      refreshExports();
+    } catch (error) {
+      console.error('❌ Erreur d\'export PNG:', error);
+      setStatusMessage(`❌ Erreur: ${error.message}`, 'error');
+    }
+  }, [setStatusMessage, refreshExports]);
+
+  // Impression
+  const handlePrint = useCallback(() => {
+    if (!generatorRef.current) {
+      setStatusMessage('❌ Générateur non initialisé', 'error');
+      return;
+    }
+    try {
+      generatorRef.current.print();
+      setStatusMessage('🖨️ Impression en cours...', 'info');
+    } catch (error) {
+      console.error('❌ Erreur d\'impression:', error);
+      setStatusMessage(`❌ Erreur: ${error.message}`, 'error');
+    }
+  }, [setStatusMessage]);
+
+  // Suppression d'un export
   const handleDeleteExport = useCallback(async (filename) => {
-    if (!isMountedRef.current) return;
     const success = await deleteExport(filename);
-    if (success && isMountedRef.current) {
+    if (success) {
       refreshExports();
     }
   }, [deleteExport, refreshExports]);
@@ -100,12 +246,12 @@ function App() {
       <main className="app-main">
         <DungeonControls
           onGenerate={handleGenerate}
-          onExportSVG={() => exportSVG()}
-          onExportPNG={() => exportPNG()}
-          onPrint={printDungeon}
-          onUndo={undo}
-          onRedo={redo}
-          onAddAnnotation={addAnnotation}
+          onExportSVG={handleExportSVG}
+          onExportPNG={handleExportPNG}
+          onPrint={handlePrint}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onAddAnnotation={handleAddAnnotation}
           onRefreshExports={refreshExports}
           onDeleteExport={handleDeleteExport}
           isLoading={isLoading}
@@ -114,34 +260,12 @@ function App() {
           isLoaded={isLoaded}
         />
 
-        {/* Conteneur pour le donjon - avec key pour forcer le re-rendu */}
-        <div 
-          className="dungeon-container" 
-          ref={containerRef}
-          key="dungeon-container"
-        >
-          {!isLoaded && (
-            <div className="dungeon-placeholder">
-              <span>🏗️</span>
-              <p>Chargement du générateur...</p>
-            </div>
-          )}
-          {isLoaded && (
-            <div className="dungeon-placeholder" id="dungeon-placeholder">
-              <span>🗺️</span>
-              <p>Sélectionnez un algorithme et cliquez sur "Générer"</p>
-              <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: '#555' }}>
-                Utilisez les contrôles pour explorer les différents styles de donjons
-              </p>
-            </div>
-          )}
-          {isLoading && (
-            <div className="loading-overlay">
-              <div className="loading-spinner" />
-              <p style={{ color: '#888' }}>Génération en cours...</p>
-            </div>
-          )}
-        </div>
+        <DungeonViewer
+          onInstanceReady={handleInstanceReady}
+          onStatus={setStatusMessage}
+          isLoaded={isLoaded}
+          isLoading={isLoading}
+        />
 
         {status.message && (
           <div className={`status-message ${status.type}`}>
