@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, forwardRef } from 'rea
 
 /**
  * DungeonViewer - Composant dédié au rendu du donjon
- * Version avec isolation totale pour éviter les conflits DOM avec React
+ * Version avec logs détaillés pour le diagnostic
  */
 const DungeonViewer = forwardRef(({ 
   onInstanceReady, 
@@ -17,9 +17,9 @@ const DungeonViewer = forwardRef(({
   const generatorRef = useRef(null);
   const isMountedRef = useRef(true);
   const initAttemptedRef = useRef(false);
-  const cleanupRef = useRef(null);
-  const forceInitTimeoutRef = useRef(null);
   const wrapperRef = useRef(null);
+
+  console.log('🔄 DungeonViewer monté');
 
   // Exposer la ref au parent
   React.useImperativeHandle(ref, () => ({
@@ -45,83 +45,71 @@ const DungeonViewer = forwardRef(({
 
   // Fonction de nettoyage sécurisée
   const safeCleanup = useCallback(() => {
+    console.log('🧹 Nettoyage du conteneur');
     const container = containerRef.current;
     if (!container) return;
     
     try {
-      // Nettoyer le générateur
       if (generatorRef.current) {
+        console.log('  - Nettoyage du générateur');
         try {
           if (generatorRef.current.svg && generatorRef.current.svg.parentNode) {
-            try {
-              generatorRef.current.svg.parentNode.removeChild(generatorRef.current.svg);
-            } catch (e) {
-              // Ignorer
-            }
+            generatorRef.current.svg.parentNode.removeChild(generatorRef.current.svg);
           }
-        } catch (e) {
-          // Ignorer
-        }
+        } catch (e) {}
         generatorRef.current = null;
       }
       
-      // Nettoyer le wrapper
       if (wrapperRef.current && wrapperRef.current.parentNode) {
+        console.log('  - Nettoyage du wrapper');
         try {
           wrapperRef.current.parentNode.removeChild(wrapperRef.current);
-        } catch (e) {
-          // Ignorer
-        }
+        } catch (e) {}
         wrapperRef.current = null;
       }
       
-      // Nettoyer le conteneur
-      try {
-        container.innerHTML = '';
-      } catch (e) {
-        while (container.firstChild) {
-          try {
-            container.removeChild(container.firstChild);
-          } catch (e) {
-            break;
-          }
-        }
-      }
+      console.log('  - Nettoyage du conteneur (innerHTML)');
+      container.innerHTML = '';
+      console.log('✅ Nettoyage terminé');
     } catch (e) {
-      // Ignorer les erreurs de nettoyage
+      console.warn('⚠️ Erreur lors du nettoyage:', e);
     }
   }, []);
 
   // Initialiser le générateur
   const initGenerator = useCallback(() => {
+    const attempt = initAttempts + 1;
+    setInitAttempts(attempt);
+    
+    console.log(`🔄 Tentative d'initialisation #${attempt}`);
+    
+    if (!isMountedRef.current) {
+      console.log('🔴 Composant démonté');
+      return;
+    }
+
+    const container = containerRef.current;
+    if (!container) {
+      console.warn('⚠️ Container non disponible');
+      setTimeout(initGenerator, 500);
+      return;
+    }
+
+    console.log('  - Container:', container);
+    console.log('  - window.DungeonGenerator:', typeof window.DungeonGenerator);
+
+    if (typeof window.DungeonGenerator !== 'function') {
+      console.warn('⏳ DungeonGenerator non disponible, réessai dans 500ms');
+      setTimeout(initGenerator, 500);
+      return;
+    }
+
     try {
-      setInitAttempts(prev => prev + 1);
-      
-      if (!isMountedRef.current) {
-        console.log('🔴 Composant démonté');
-        return;
-      }
-
-      const container = containerRef.current;
-      if (!container) {
-        console.warn('⚠️ Container non disponible');
-        setTimeout(initGenerator, 500);
-        return;
-      }
-
-      console.log(`🔄 Tentative d'initialisation #${initAttempts + 1}`);
-
-      // Vérifier la bibliothèque
-      if (typeof window.DungeonGenerator !== 'function') {
-        console.warn('⏳ DungeonGenerator non disponible');
-        setTimeout(initGenerator, 500);
-        return;
-      }
-
       // Nettoyer le conteneur
       safeCleanup();
 
       // Créer un wrapper
+      console.log('🏗️ Création du wrapper');
       const wrapper = document.createElement('div');
       wrapper.id = 'dungeon-wrapper';
       wrapper.style.width = '100%';
@@ -134,10 +122,10 @@ const DungeonViewer = forwardRef(({
       
       container.appendChild(wrapper);
       wrapperRef.current = wrapper;
-
-      console.log('🏗️ Wrapper créé, tentative de création de l\'instance...');
+      console.log('  - Wrapper créé et ajouté');
 
       // Créer l'instance
+      console.log('🏗️ Création de l\'instance DungeonGenerator');
       const instance = new window.DungeonGenerator({
         container: wrapper,
         tileSize: 32,
@@ -146,9 +134,7 @@ const DungeonViewer = forwardRef(({
         customTileTypes: [
           { id: 'tresor', color: '#f1c40f', label: 'Trésor', icon: '💰' },
           { id: 'piege', color: '#e74c3c', label: 'Piège', icon: '⚔️' },
-          { id: 'portail', color: '#8e44ad', label: 'Portail', icon: '🌀' },
-          { id: 'autel', color: '#9b59b6', label: 'Autel', icon: '🕯️' },
-          { id: 'bibliotheque', color: '#3498db', label: 'Bibliothèque', icon: '📚' }
+          { id: 'portail', color: '#8e44ad', label: 'Portail', icon: '🌀' }
         ]
       });
 
@@ -161,8 +147,13 @@ const DungeonViewer = forwardRef(({
       }
 
       generatorRef.current = instance;
+      window.__dungeonInstance = instance;
       setIsLoaded(true);
       setInitError(null);
+      
+      console.log('✅ DungeonGenerator initialisé avec succès');
+      console.log('  - Dimensions:', instance.width, 'x', instance.height);
+      console.log('  - SVG créé:', !!instance.svg);
       
       if (onInstanceReady) {
         onInstanceReady(instance);
@@ -171,13 +162,16 @@ const DungeonViewer = forwardRef(({
         onStatus('✅ Prêt', 'success');
       }
 
-      console.log('✅ DungeonGenerator initialisé avec succès');
-      console.log('📐 Dimensions:', instance.width, 'x', instance.height);
-
+      // Vérifier le SVG après un délai
       setTimeout(() => {
         const svgInWrapper = wrapper.querySelector('svg');
-        console.log('🔍 SVG dans le wrapper:', !!svgInWrapper);
-      }, 100);
+        console.log('🔍 Vérification SVG après initialisation:');
+        console.log('  - SVG dans le wrapper:', !!svgInWrapper);
+        if (svgInWrapper) {
+          console.log('  - Dimensions SVG:', svgInWrapper.getAttribute('width'), 'x', svgInWrapper.getAttribute('height'));
+          console.log('  - Enfants SVG:', svgInWrapper.children.length);
+        }
+      }, 200);
 
     } catch (error) {
       console.error('❌ Erreur d\'initialisation:', error);
@@ -186,8 +180,8 @@ const DungeonViewer = forwardRef(({
         onStatus(`❌ Erreur: ${error.message}`, 'error');
       }
       
-      if (initAttempts < 10 && isMountedRef.current) {
-        console.log(`🔄 Nouvelle tentative dans 1s (${initAttempts}/10)`);
+      if (attempt < 10 && isMountedRef.current) {
+        console.log(`🔄 Nouvelle tentative dans 1s (${attempt}/10)`);
         setTimeout(initGenerator, 1000);
       }
     }
@@ -195,9 +189,11 @@ const DungeonViewer = forwardRef(({
 
   // Effet principal d'initialisation
   useEffect(() => {
+    console.log('📦 useEffect principal - montage');
     isMountedRef.current = true;
     
     if (initAttemptedRef.current) {
+      console.log('  - Initialisation déjà tentée');
       return;
     }
     initAttemptedRef.current = true;
@@ -208,34 +204,20 @@ const DungeonViewer = forwardRef(({
     };
 
     if (document.readyState === 'complete') {
+      console.log('  - DOM déjà chargé');
       startInit();
     } else {
+      console.log('  - Attente du chargement du DOM');
       window.addEventListener('load', startInit);
     }
 
-    forceInitTimeoutRef.current = setTimeout(() => {
-      if (!isLoaded && !initError && isMountedRef.current) {
-        console.log('⏰ Timeout: Forçage de l\'initialisation');
-        initGenerator();
-      }
-    }, 5000);
-
     return () => {
+      console.log('🧹 Nettoyage du useEffect');
       isMountedRef.current = false;
       window.removeEventListener('load', startInit);
-      if (forceInitTimeoutRef.current) {
-        clearTimeout(forceInitTimeoutRef.current);
-      }
       safeCleanup();
     };
   }, [initGenerator, safeCleanup]);
-
-  // Effet pour le nettoyage lors du démontage
-  useEffect(() => {
-    return () => {
-      safeCleanup();
-    };
-  }, [safeCleanup]);
 
   return (
     <div 
@@ -267,24 +249,6 @@ const DungeonViewer = forwardRef(({
           <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: '#444' }}>
             Tentative {Math.min(initAttempts + 1, 10)}/10
           </p>
-          <div style={{ 
-            marginTop: '1rem',
-            width: '200px',
-            height: '4px',
-            background: '#2a2a4a',
-            borderRadius: '2px',
-            marginLeft: 'auto',
-            marginRight: 'auto',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              width: `${Math.min((initAttempts / 10) * 100, 100)}%`,
-              height: '100%',
-              background: 'linear-gradient(90deg, #f7971e, #ffd200)',
-              borderRadius: '2px',
-              transition: 'width 0.3s ease'
-            }} />
-          </div>
         </div>
       )}
 
