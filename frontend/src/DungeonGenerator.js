@@ -19,17 +19,18 @@ const useDungeonGenerator = ({
   const generatorRef = useRef(null);
   const checkIntervalRef = useRef(null);
   const timeoutRef = useRef(null);
+  const isMountedRef = useRef(true);
 
   // Wrapper pour onStatus
   const setStatus = useCallback((message, type = 'info') => {
-    if (onStatus) {
+    if (onStatus && isMountedRef.current) {
       onStatus(message, type);
     }
   }, [onStatus]);
 
   // Mise à jour de l'historique
   const updateHistoryState = useCallback((instance) => {
-    if (instance) {
+    if (instance && isMountedRef.current) {
       setHistory({
         canUndo: typeof instance.undo === 'function',
         canRedo: typeof instance.redo === 'function'
@@ -47,7 +48,7 @@ const useDungeonGenerator = ({
       
       const response = await axios.post(endpoint, payload);
       
-      if (response.data.success) {
+      if (response.data.success && isMountedRef.current) {
         console.log(`📁 Fichier sauvegardé: ${response.data.url}`);
         setStatus(`📁 Sauvegardé: ${response.data.filename}`, 'info');
         return response.data;
@@ -55,14 +56,37 @@ const useDungeonGenerator = ({
       return null;
     } catch (error) {
       console.error('❌ Erreur de sauvegarde:', error);
-      setStatus(`❌ Erreur de sauvegarde: ${error.message}`, 'error');
+      if (isMountedRef.current) {
+        setStatus(`❌ Erreur de sauvegarde: ${error.message}`, 'error');
+      }
       return null;
     }
   }, [setStatus]);
 
+  // Nettoyer le conteneur en toute sécurité
+  const safeCleanup = useCallback(() => {
+    try {
+      if (containerRef.current) {
+        // Supprimer uniquement les enfants créés par nous
+        while (containerRef.current.firstChild) {
+          try {
+            containerRef.current.removeChild(containerRef.current.firstChild);
+          } catch (e) {
+            // Ignorer les erreurs de suppression
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      // Ignorer les erreurs de nettoyage
+    }
+  }, [containerRef]);
+
   // Création de l'instance
   const createInstance = useCallback(() => {
     try {
+      if (!isMountedRef.current) return;
+      
       if (!containerRef.current) {
         setStatus('❌ Container non disponible', 'error');
         return;
@@ -73,6 +97,9 @@ const useDungeonGenerator = ({
         setStatus('❌ DungeonGenerator non disponible', 'error');
         return;
       }
+
+      // Nettoyer le conteneur avant de créer l'instance
+      safeCleanup();
 
       const instance = new window.DungeonGenerator({
         container: containerRef.current,
@@ -97,14 +124,20 @@ const useDungeonGenerator = ({
       
     } catch (error) {
       console.error('❌ Erreur de création:', error);
-      setStatus(`❌ Erreur: ${error.message}`, 'error');
+      if (isMountedRef.current) {
+        setStatus(`❌ Erreur: ${error.message}`, 'error');
+      }
     }
-  }, [containerRef, setStatus, updateHistoryState]);
+  }, [containerRef, setStatus, updateHistoryState, safeCleanup]);
 
   // Initialisation de la bibliothèque
   useEffect(() => {
+    isMountedRef.current = true;
+
     const initLibrary = () => {
       try {
+        if (!isMountedRef.current) return;
+
         // Vérifier si la bibliothèque est disponible
         if (typeof window.DungeonGenerator !== 'function') {
           // Attendre que le script soit chargé
@@ -112,7 +145,9 @@ const useDungeonGenerator = ({
             if (typeof window.DungeonGenerator === 'function') {
               clearInterval(checkIntervalRef.current);
               checkIntervalRef.current = null;
-              createInstance();
+              if (isMountedRef.current) {
+                createInstance();
+              }
             }
           }, 100);
           
@@ -121,7 +156,9 @@ const useDungeonGenerator = ({
             if (checkIntervalRef.current) {
               clearInterval(checkIntervalRef.current);
               checkIntervalRef.current = null;
-              setStatus('❌ La bibliothèque DungeonGenerator n\'a pas été trouvée', 'error');
+              if (isMountedRef.current) {
+                setStatus('❌ La bibliothèque DungeonGenerator n\'a pas été trouvée', 'error');
+              }
             }
           }, 5000);
           
@@ -132,7 +169,9 @@ const useDungeonGenerator = ({
 
       } catch (error) {
         console.error('❌ Erreur d\'initialisation:', error);
-        setStatus(`❌ Erreur: ${error.message}`, 'error');
+        if (isMountedRef.current) {
+          setStatus(`❌ Erreur: ${error.message}`, 'error');
+        }
       }
     };
 
@@ -144,6 +183,8 @@ const useDungeonGenerator = ({
     }
     
     return () => {
+      isMountedRef.current = false;
+      
       window.removeEventListener('load', initLibrary);
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current);
@@ -153,12 +194,28 @@ const useDungeonGenerator = ({
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
+      
+      // Nettoyer le générateur
       if (generatorRef.current) {
         try {
-          generatorRef.current.container.innerHTML = '';
+          // Essayer de nettoyer le SVG
+          if (generatorRef.current.svg && generatorRef.current.svg.parentNode) {
+            generatorRef.current.svg.parentNode.removeChild(generatorRef.current.svg);
+          }
+          // Vider le conteneur
+          if (containerRef.current) {
+            while (containerRef.current.firstChild) {
+              try {
+                containerRef.current.removeChild(containerRef.current.firstChild);
+              } catch (e) {
+                break;
+              }
+            }
+          }
         } catch (e) {
           // Ignorer les erreurs de nettoyage
         }
+        generatorRef.current = null;
       }
     };
   }, [containerRef, createInstance, setStatus]);
@@ -166,6 +223,11 @@ const useDungeonGenerator = ({
   // Génération du donjon
   const generateDungeon = useCallback((algorithm, params) => {
     return new Promise((resolve, reject) => {
+      if (!isMountedRef.current) {
+        reject(new Error('Composant démonté'));
+        return;
+      }
+
       if (!generatorRef.current) {
         const error = new Error('Générateur non initialisé');
         setStatus('❌ Générateur non initialisé', 'error');
@@ -182,16 +244,20 @@ const useDungeonGenerator = ({
         
         updateHistoryState(instance);
         
-        setIsLoading(false);
-        setStatus(`✅ Donjon généré avec succès! (${algorithm})`, 'success');
-        if (onGenerate) {
-          onGenerate(instance);
+        if (isMountedRef.current) {
+          setIsLoading(false);
+          setStatus(`✅ Donjon généré avec succès! (${algorithm})`, 'success');
+          if (onGenerate) {
+            onGenerate(instance);
+          }
         }
         resolve(instance);
       } catch (error) {
         console.error('❌ Erreur de génération:', error);
-        setIsLoading(false);
-        setStatus(`❌ Erreur: ${error.message}`, 'error');
+        if (isMountedRef.current) {
+          setIsLoading(false);
+          setStatus(`❌ Erreur: ${error.message}`, 'error');
+        }
         reject(error);
       }
     });
@@ -199,6 +265,7 @@ const useDungeonGenerator = ({
 
   // Ajout d'une annotation
   const addAnnotation = useCallback((x, y, text, color = '#ffd700', fontSize = 14) => {
+    if (!isMountedRef.current) return;
     if (!generatorRef.current) {
       setStatus('❌ Générateur non initialisé', 'error');
       return;
@@ -214,6 +281,7 @@ const useDungeonGenerator = ({
 
   // Annulation
   const undo = useCallback(() => {
+    if (!isMountedRef.current) return;
     if (!generatorRef.current) {
       setStatus('❌ Générateur non initialisé', 'error');
       return;
@@ -232,6 +300,7 @@ const useDungeonGenerator = ({
 
   // Rétablissement
   const redo = useCallback(() => {
+    if (!isMountedRef.current) return;
     if (!generatorRef.current) {
       setStatus('❌ Générateur non initialisé', 'error');
       return;
@@ -250,6 +319,7 @@ const useDungeonGenerator = ({
 
   // Export SVG
   const exportSVG = useCallback(async (filename = 'donjon.svg') => {
+    if (!isMountedRef.current) return;
     if (!generatorRef.current) {
       setStatus('❌ Générateur non initialisé', 'error');
       return;
@@ -280,12 +350,15 @@ const useDungeonGenerator = ({
       
     } catch (error) {
       console.error('❌ Erreur d\'export SVG:', error);
-      setStatus(`❌ Erreur: ${error.message}`, 'error');
+      if (isMountedRef.current) {
+        setStatus(`❌ Erreur: ${error.message}`, 'error');
+      }
     }
   }, [containerRef, setStatus, onExport, saveToServer]);
 
   // Export PNG
   const exportPNG = useCallback(async (filename = 'donjon.png') => {
+    if (!isMountedRef.current) return;
     if (!generatorRef.current) {
       setStatus('❌ Générateur non initialisé', 'error');
       return;
@@ -315,12 +388,15 @@ const useDungeonGenerator = ({
       
     } catch (error) {
       console.error('❌ Erreur d\'export PNG:', error);
-      setStatus(`❌ Erreur: ${error.message}`, 'error');
+      if (isMountedRef.current) {
+        setStatus(`❌ Erreur: ${error.message}`, 'error');
+      }
     }
   }, [setStatus, onExport, saveToServer]);
 
   // Impression
   const printDungeon = useCallback(() => {
+    if (!isMountedRef.current) return;
     if (!generatorRef.current) {
       setStatus('❌ Générateur non initialisé', 'error');
       return;
@@ -337,6 +413,7 @@ const useDungeonGenerator = ({
 
   // Récupération des exports depuis le serveur
   const getExports = useCallback(async () => {
+    if (!isMountedRef.current) return [];
     try {
       const response = await axios.get('/api/exports');
       if (response.data.success) {
@@ -345,13 +422,16 @@ const useDungeonGenerator = ({
       return [];
     } catch (error) {
       console.error('❌ Erreur de récupération des exports:', error);
-      setStatus(`❌ Erreur: ${error.message}`, 'error');
+      if (isMountedRef.current) {
+        setStatus(`❌ Erreur: ${error.message}`, 'error');
+      }
       return [];
     }
   }, [setStatus]);
 
   // Suppression d'un export
   const deleteExport = useCallback(async (filename) => {
+    if (!isMountedRef.current) return false;
     try {
       const response = await axios.delete(`/api/exports/${filename}`);
       if (response.data.success) {
@@ -361,7 +441,9 @@ const useDungeonGenerator = ({
       return false;
     } catch (error) {
       console.error('❌ Erreur de suppression:', error);
-      setStatus(`❌ Erreur: ${error.message}`, 'error');
+      if (isMountedRef.current) {
+        setStatus(`❌ Erreur: ${error.message}`, 'error');
+      }
       return false;
     }
   }, [setStatus]);
