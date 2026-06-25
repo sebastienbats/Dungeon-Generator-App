@@ -241,33 +241,28 @@ exportSVG('mon-donjon')
 exportPNG('mon-donjon')
 ```
 
----
-
 ## 📁 Structure du projet
-
-```
+```text
 dungeon-generator-app/
-├── backend/                          # Backend Node.js
-│   ├── exports/                      # Fichiers exportés (SVG, PNG)
-│   ├── server.js                     # Serveur Express principal
-│   ├── package.json                  # Dépendances backend
-│   └── .env                          # Variables d'environnement
-│
-├── frontend/                         # Frontend React
+├── backend/
+│   ├── exports/
+│   ├── server.js
+│   └── package.json
+├── frontend/
 │   ├── public/
-│   │   └── index.html               # Page HTML avec bibliothèque inline
+│   │   └── index.html
 │   ├── src/
-│   │   ├── App.js                   # Composant principal
-│   │   ├── App.css                  # Styles globaux
-│   │   ├── DungeonGenerator.js      # Hook personnalisé
-│   │   ├── DungeonControls.js       # Composant des contrôles
-│   │   ├── DungeonControls.css      # Styles des contrôles
-│   │   └── index.js                 # Point d'entrée React
-│   └── package.json                  # Dépendances frontend
-│
-├── .gitignore                        # Fichiers ignorés par Git
-├── README.md                         # Documentation complète
-└── LICENSE                           # Licence MIT
+│   │   ├── App.js
+│   │   ├── App.css
+│   │   ├── DungeonViewer.js
+│   │   ├── DungeonControls.js
+│   │   ├── DungeonControls.css
+│   │   ├── diagnostic.js
+│   │   ├── ErrorBoundary.js
+│   │   └── index.js
+│   └── package.json
+├── .gitignore
+└── README.md
 ```
 
 ### Description des fichiers
