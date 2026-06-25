@@ -16,6 +16,7 @@ const DungeonViewer = ({
   const generatorRef = useRef(null);
   const isMountedRef = useRef(true);
   const initAttemptedRef = useRef(false);
+  const cleanupRef = useRef(null);
 
   // Initialiser le générateur une seule fois
   useEffect(() => {
@@ -27,10 +28,14 @@ const DungeonViewer = ({
     }
     initAttemptedRef.current = true;
 
+    // Copier la référence du conteneur pour le cleanup
+    const container = containerRef.current;
+    cleanupRef.current = container;
+
     const initGenerator = () => {
       try {
         if (!isMountedRef.current) return;
-        if (!containerRef.current) {
+        if (!container) {
           console.warn('⚠️ Container non disponible');
           return;
         }
@@ -44,10 +49,10 @@ const DungeonViewer = ({
         }
 
         // Nettoyer le conteneur
-        if (containerRef.current) {
-          while (containerRef.current.firstChild) {
+        if (container) {
+          while (container.firstChild) {
             try {
-              containerRef.current.removeChild(containerRef.current.firstChild);
+              container.removeChild(container.firstChild);
             } catch (e) {
               break;
             }
@@ -62,7 +67,7 @@ const DungeonViewer = ({
         wrapper.style.justifyContent = 'center';
         wrapper.style.alignItems = 'center';
         wrapper.style.minHeight = '400px';
-        containerRef.current.appendChild(wrapper);
+        container.appendChild(wrapper);
 
         // Créer l'instance
         const instance = new window.DungeonGenerator({
@@ -109,29 +114,38 @@ const DungeonViewer = ({
       isMountedRef.current = false;
       clearTimeout(timeoutId);
       
+      // Utiliser la référence copiée pour le cleanup
+      const cleanupContainer = cleanupRef.current;
+      
       // Nettoyer l'instance
       if (generatorRef.current) {
         try {
           if (generatorRef.current.svg && generatorRef.current.svg.parentNode) {
             try {
               generatorRef.current.svg.parentNode.removeChild(generatorRef.current.svg);
-            } catch (e) {}
+            } catch (e) {
+              // Ignorer les erreurs de nettoyage
+            }
           }
-        } catch (e) {}
+        } catch (e) {
+          // Ignorer les erreurs de nettoyage
+        }
         generatorRef.current = null;
       }
       
-      // Nettoyer le conteneur
-      if (containerRef.current) {
+      // Nettoyer le conteneur avec la référence copiée
+      if (cleanupContainer) {
         try {
-          while (containerRef.current.firstChild) {
+          while (cleanupContainer.firstChild) {
             try {
-              containerRef.current.removeChild(containerRef.current.firstChild);
+              cleanupContainer.removeChild(cleanupContainer.firstChild);
             } catch (e) {
               break;
             }
           }
-        } catch (e) {}
+        } catch (e) {
+          // Ignorer les erreurs de nettoyage
+        }
       }
     };
   }, [onInstanceReady, onStatus]);
