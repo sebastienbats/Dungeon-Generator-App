@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, forwardRef } from 'rea
 
 /**
  * DungeonViewer - Composant dédié au rendu du donjon
- * Version avec isolation totale via iframe pour éviter les conflits DOM
+ * Version iframe avec initialisation automatique améliorée
  */
 const DungeonViewer = forwardRef(({ 
   onInstanceReady, 
@@ -18,6 +18,7 @@ const DungeonViewer = forwardRef(({
   const isMountedRef = useRef(true);
   const initAttemptedRef = useRef(false);
   const wrapperRef = useRef(null);
+  const iframeLoadedRef = useRef(false);
 
   console.log('🔄 DungeonViewer monté (version iframe)');
 
@@ -30,14 +31,14 @@ const DungeonViewer = forwardRef(({
     retry: () => {
       setInitAttempts(0);
       setInitError(null);
+      iframeLoadedRef.current = false;
       initGenerator();
     },
     getSVG: () => {
       try {
         const iframe = iframeRef.current;
         if (iframe && iframe.contentDocument) {
-          const svg = iframe.contentDocument.querySelector('svg');
-          return svg;
+          return iframe.contentDocument.querySelector('svg');
         }
       } catch (e) {}
       return null;
@@ -59,7 +60,9 @@ const DungeonViewer = forwardRef(({
     const iframe = iframeRef.current;
     if (!iframe) {
       console.warn('⚠️ Iframe non disponible');
-      setTimeout(initGenerator, 500);
+      if (attempt < 10) {
+        setTimeout(initGenerator, 500);
+      }
       return;
     }
 
@@ -68,21 +71,26 @@ const DungeonViewer = forwardRef(({
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
       if (!iframeDoc) {
         console.warn('⚠️ Document de l\'iframe non disponible');
-        setTimeout(initGenerator, 500);
+        if (attempt < 10) {
+          setTimeout(initGenerator, 500);
+        }
         return;
       }
 
-      console.log('  - Iframe document:', iframeDoc);
+      console.log('  - Iframe document disponible');
+
+      // Vérifier la bibliothèque dans l'iframe
+      const iframeWindow = iframe.contentWindow;
+      if (!iframeWindow || typeof iframeWindow.DungeonGenerator !== 'function') {
+        console.warn('⏳ DungeonGenerator non disponible dans l\'iframe');
+        if (attempt < 10) {
+          setTimeout(initGenerator, 500);
+        }
+        return;
+      }
 
       // Nettoyer l'iframe
       iframeDoc.body.innerHTML = '';
-
-      // Vérifier la bibliothèque
-      if (typeof window.DungeonGenerator !== 'function') {
-        console.warn('⏳ DungeonGenerator non disponible');
-        setTimeout(initGenerator, 500);
-        return;
-      }
 
       // Créer un wrapper dans l'iframe
       const wrapper = iframeDoc.createElement('div');
@@ -104,9 +112,9 @@ const DungeonViewer = forwardRef(({
       wrapperRef.current = wrapper;
       console.log('  - Wrapper créé dans l\'iframe');
 
-      // Créer l'instance
+      // Créer l'instance avec la bibliothèque de l'iframe
       console.log('🏗️ Création de l\'instance DungeonGenerator');
-      const instance = new window.DungeonGenerator({
+      const instance = new iframeWindow.DungeonGenerator({
         container: wrapper,
         tileSize: 32,
         width: 50,
@@ -144,12 +152,14 @@ const DungeonViewer = forwardRef(({
       // Générer un donjon par défaut
       setTimeout(() => {
         try {
-          instance.generate('rooms', {
-            numRooms: 8,
-            minRoomSize: 3,
-            maxRoomSize: 6
-          });
-          console.log('🎲 Donjon par défaut généré');
+          if (instance && typeof instance.generate === 'function') {
+            instance.generate('rooms', {
+              numRooms: 8,
+              minRoomSize: 3,
+              maxRoomSize: 6
+            });
+            console.log('🎲 Donjon par défaut généré');
+          }
         } catch (e) {
           console.warn('⚠️ Erreur lors de la génération par défaut:', e);
         }
@@ -180,20 +190,72 @@ const DungeonViewer = forwardRef(({
     }
     initAttemptedRef.current = true;
 
-    // Attendre que l'iframe soit chargé
-    const startInit = () => {
-      console.log('🚀 Démarrage de l\'initialisation');
-      setTimeout(initGenerator, 300);
+    // Fonction d'initialisation après chargement de l'iframe
+    const handleIframeLoad = () => {
+      console.log('✅ Iframe chargé');
+      iframeLoadedRef.current = true;
+      
+      // Attendre que la bibliothèque soit disponible dans l'iframe
+      const checkLibrary = () => {
+        try {
+          const iframe = iframeRef.current;
+          if (iframe && iframe.contentWindow) {
+            if (typeof iframe.contentWindow.DungeonGenerator === 'function') {
+              console.log('✅ Bibliothèque disponible dans l\'iframe');
+              initGenerator();
+              return;
+            }
+          }
+          console.log('⏳ Attente de la bibliothèque dans l\'iframe...');
+          setTimeout(checkLibrary, 200);
+        } catch (e) {
+          console.warn('⚠️ Erreur lors de la vérification:', e);
+          setTimeout(checkLibrary, 500);
+        }
+      };
+      
+      // Démarrer la vérification
+      checkLibrary();
     };
 
-    // Démarrer après un court délai
-    setTimeout(startInit, 200);
+    // Si l'iframe est déjà chargé
+    const iframe = iframeRef.current;
+    if (iframe && iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+      console.log('✅ Iframe déjà chargé');
+      setTimeout(handleIframeLoad, 100);
+    } else if (iframe) {
+      console.log('⏳ Attente du chargement de l\'iframe');
+      iframe.addEventListener('load', handleIframeLoad);
+    }
+
+    // Timeout de secours
+    const timeoutId = setTimeout(() => {
+      if (!isLoaded && !initError) {
+        console.log('⏰ Timeout: Forçage de l\'initialisation');
+        // Forcer l'initialisation même si l'iframe n'est pas chargé
+        initGenerator();
+      }
+    }, 5000);
 
     return () => {
       console.log('🧹 Nettoyage du useEffect');
       isMountedRef.current = false;
+      clearTimeout(timeoutId);
+      
+      const iframe = iframeRef.current;
+      if (iframe) {
+        iframe.removeEventListener('load', handleIframeLoad);
+      }
     };
-  }, [initGenerator]);
+  }, [initGenerator, isLoaded, initError]);
+
+  // Effet pour surveiller les changements de externalIsLoaded
+  useEffect(() => {
+    if (externalIsLoaded && !isLoaded && !initError) {
+      console.log('🔄 Re-initialisation forcée par le parent');
+      initGenerator();
+    }
+  }, [externalIsLoaded, isLoaded, initError, initGenerator]);
 
   return (
     <div 
@@ -223,6 +285,20 @@ const DungeonViewer = forwardRef(({
           <!DOCTYPE html>
           <html>
             <head>
+              <script>
+                // Charger la bibliothèque depuis le parent
+                (function() {
+                  try {
+                    // Copier la bibliothèque depuis le parent
+                    if (window.parent && window.parent.DungeonGenerator) {
+                      window.DungeonGenerator = window.parent.DungeonGenerator;
+                      console.log('✅ Bibliothèque copiée depuis le parent');
+                    }
+                  } catch (e) {
+                    console.warn('⚠️ Erreur lors de la copie de la bibliothèque:', e);
+                  }
+                })();
+              </script>
               <style>
                 body { margin: 0; padding: 0; background: #1a1a2e; }
                 #dungeon-wrapper { 
@@ -256,15 +332,12 @@ const DungeonViewer = forwardRef(({
                 <div class="dungeon-placeholder">
                   <span>🏗️</span>
                   <p>Chargement du générateur...</p>
-                  <p style="font-size: 0.8rem; color: #444;">Tentative ${Math.min(initAttempts + 1, 10)}/10</p>
+                  <p style="font-size: 0.8rem; color: #444;">Initialisation en cours</p>
                 </div>
               </div>
             </body>
           </html>
         `}
-        onLoad={() => {
-          console.log('✅ Iframe chargé');
-        }}
       />
       
       {!isLoaded && !externalIsLoaded && !initError && (
@@ -276,7 +349,8 @@ const DungeonViewer = forwardRef(({
           color: '#555',
           textAlign: 'center',
           padding: '3rem',
-          pointerEvents: 'none'
+          pointerEvents: 'none',
+          display: 'none' // Caché car l'iframe affiche déjà le message
         }}>
           <span style={{ fontSize: '4rem', display: 'block', marginBottom: '1rem' }}>🏗️</span>
           <p>Chargement du générateur...</p>
@@ -295,7 +369,10 @@ const DungeonViewer = forwardRef(({
           color: '#d63031',
           textAlign: 'center',
           padding: '2rem',
-          width: '100%'
+          width: '100%',
+          background: 'rgba(26, 26, 46, 0.95)',
+          zIndex: 20,
+          borderRadius: '16px'
         }}>
           <span style={{ fontSize: '3rem', display: 'block', marginBottom: '1rem' }}>⚠️</span>
           <p style={{ fontWeight: 'bold' }}>Erreur d'initialisation</p>
