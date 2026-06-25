@@ -10,6 +10,7 @@ function App() {
   const [exportsList, setExportsList] = useState([]);
   const isMountedRef = useRef(true);
   const generatorRef = useRef(null);
+  const viewerRef = useRef(null);
   
   const setStatusMessage = useCallback((message, type = 'info') => {
     if (isMountedRef.current) {
@@ -75,13 +76,10 @@ function App() {
   // Charger les exports au démarrage
   useEffect(() => {
     isMountedRef.current = true;
-    if (isLoaded) {
-      refreshExports();
-    }
     return () => {
       isMountedRef.current = false;
     };
-  }, [isLoaded, refreshExports]);
+  }, []);
 
   // Génération du donjon
   const handleGenerate = useCallback(async (algorithm, params) => {
@@ -106,6 +104,7 @@ function App() {
       
       if (isMountedRef.current) {
         setStatusMessage(`✅ Donjon généré avec succès! (${algorithm})`, 'success');
+        refreshExports();
       }
     } catch (error) {
       console.error('❌ Erreur de génération:', error);
@@ -117,7 +116,7 @@ function App() {
         setIsLoading(false);
       }
     }
-  }, [setStatusMessage]);
+  }, [setStatusMessage, refreshExports]);
 
   // Ajout d'une annotation
   const handleAddAnnotation = useCallback((x, y, text, color = '#ffd700', fontSize = 14) => {
@@ -258,6 +257,7 @@ function App() {
         />
 
         <DungeonViewer
+          ref={viewerRef}
           onInstanceReady={handleInstanceReady}
           onStatus={setStatusMessage}
           isLoaded={isLoaded}
