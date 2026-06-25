@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 /**
  * DungeonViewer - Composant dédié au rendu du donjon
- * Isolé du reste de l'application pour éviter les conflits DOM
+ * Version avec diagnostic amélioré et fallback
  */
 const DungeonViewer = ({ 
   onInstanceReady, 
@@ -18,6 +18,7 @@ const DungeonViewer = ({
   const isMountedRef = useRef(true);
   const initAttemptedRef = useRef(false);
   const cleanupRef = useRef(null);
+  const forceInitTimeoutRef = useRef(null);
 
   // Fonction de nettoyage sécurisée
   const safeCleanup = useCallback((container) => {
@@ -29,9 +30,7 @@ const DungeonViewer = ({
           if (generatorRef.current.svg && generatorRef.current.svg.parentNode) {
             generatorRef.current.svg.parentNode.removeChild(generatorRef.current.svg);
           }
-        } catch (e) {
-          // Ignorer les erreurs de nettoyage
-        }
+        } catch (e) {}
         generatorRef.current = null;
       }
       
@@ -42,10 +41,20 @@ const DungeonViewer = ({
           break;
         }
       }
-    } catch (e) {
-      // Ignorer les erreurs de nettoyage
-    }
+    } catch (e) {}
   }, []);
+
+  // Fonction de diagnostic
+  const logDiagnostic = useCallback(() => {
+    console.log('🔍 DIAGNOSTIC:');
+    console.log('  - containerRef.current:', containerRef.current);
+    console.log('  - containerRef.current?.children:', containerRef.current?.children);
+    console.log('  - typeof window.DungeonGenerator:', typeof window.DungeonGenerator);
+    console.log('  - isLoaded:', isLoaded);
+    console.log('  - initError:', initError);
+    console.log('  - initAttempts:', initAttempts);
+    console.log('  - generatorRef.current:', generatorRef.current);
+  }, [isLoaded, initError, initAttempts]);
 
   // Initialiser le générateur
   const initGenerator = useCallback(() => {
@@ -59,12 +68,13 @@ const DungeonViewer = ({
 
       const container = containerRef.current;
       if (!container) {
-        console.warn('⚠️ Container non disponible');
+        console.warn('⚠️ Container non disponible, réessai dans 500ms');
         setTimeout(initGenerator, 500);
         return;
       }
 
       console.log(`🔄 Tentative d'initialisation #${initAttempts + 1}`);
+      logDiagnostic();
 
       // Vérifier la bibliothèque
       if (typeof window.DungeonGenerator !== 'function') {
@@ -76,7 +86,7 @@ const DungeonViewer = ({
       // Nettoyer le conteneur
       safeCleanup(container);
 
-      // Créer un wrapper avec un ID pour le débogage
+      // Créer un wrapper
       const wrapper = document.createElement('div');
       wrapper.id = 'dungeon-wrapper';
       wrapper.style.width = '100%';
@@ -87,9 +97,9 @@ const DungeonViewer = ({
       wrapper.style.minHeight = '400px';
       container.appendChild(wrapper);
 
-      console.log('🏗️ Création de l\'instance DungeonGenerator...');
-      
-      // Créer l'instance avec des options
+      console.log('🏗️ Wrapper créé, tentative de création de l\'instance...');
+
+      // Créer l'instance
       const instance = new window.DungeonGenerator({
         container: wrapper,
         tileSize: 32,
@@ -104,9 +114,13 @@ const DungeonViewer = ({
         ]
       });
 
-      // Vérifier que l'instance est valide
-      if (!instance || typeof instance.generate !== 'function') {
-        throw new Error('L\'instance DungeonGenerator n\'est pas valide');
+      // Vérifier l'instance
+      if (!instance) {
+        throw new Error('L\'instance DungeonGenerator est null');
+      }
+      
+      if (typeof instance.generate !== 'function') {
+        throw new Error('L\'instance DungeonGenerator n\'a pas la méthode generate');
       }
 
       generatorRef.current = instance;
@@ -122,9 +136,19 @@ const DungeonViewer = ({
 
       console.log('✅ DungeonGenerator initialisé avec succès');
       console.log('📐 Dimensions:', instance.width, 'x', instance.height);
+      console.log('🖼️ SVG créé:', !!instance.svg);
+
+      // Vérifier que le SVG est bien dans le DOM
+      setTimeout(() => {
+        const svgInContainer = container.querySelector('svg');
+        console.log('🔍 Vérification SVG dans le conteneur:', !!svgInContainer);
+        if (!svgInContainer) {
+          console.warn('⚠️ Aucun SVG trouvé dans le conteneur après initialisation');
+        }
+      }, 100);
 
     } catch (error) {
-      console.error('❌ Erreur:', error);
+      console.error('❌ Erreur d\'initialisation:', error);
       setInitError(error.message);
       if (onStatus) {
         onStatus(`❌ Erreur: ${error.message}`, 'error');
@@ -132,10 +156,90 @@ const DungeonViewer = ({
       
       // Réessayer si moins de 10 tentatives
       if (initAttempts < 10 && isMountedRef.current) {
+        console.log(`🔄 Nouvelle tentative dans 1s (${initAttempts}/10)`);
         setTimeout(initGenerator, 1000);
+      } else {
+        console.error('❌ Échec après 10 tentatives');
+        // Créer un donjon de secours manuellement
+        createFallbackDungeon();
       }
     }
-  }, [onInstanceReady, onStatus, safeCleanup, initAttempts]);
+  }, [onInstanceReady, onStatus, safeCleanup, initAttempts, logDiagnostic]);
+
+  // Créer un donjon de secours en cas d'échec
+  const createFallbackDungeon = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    console.log('🆘 Création d\'un donjon de secours...');
+
+    try {
+      // Nettoyer le conteneur
+      safeCleanup(container);
+
+      // Créer un SVG manuellement
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', '100%');
+      svg.setAttribute('height', '100%');
+      svg.setAttribute('viewBox', '0 0 800 600');
+      svg.style.backgroundColor = '#1a1a2e';
+      svg.style.minHeight = '400px';
+
+      // Dessiner un donjon simple
+      const colors = ['#2d3436', '#636e72', '#4a4a4a', '#3d3d3d'];
+      for (let i = 0; i < 20; i++) {
+        for (let j = 0; j < 15; j++) {
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          const x = i * 40 + Math.random() * 10;
+          const y = j * 40 + Math.random() * 10;
+          rect.setAttribute('x', x);
+          rect.setAttribute('y', y);
+          rect.setAttribute('width', 30 + Math.random() * 10);
+          rect.setAttribute('height', 30 + Math.random() * 10);
+          rect.setAttribute('fill', colors[Math.floor(Math.random() * colors.length)]);
+          rect.setAttribute('stroke', '#1a1a2e');
+          rect.setAttribute('stroke-width', '1');
+          svg.appendChild(rect);
+        }
+      }
+
+      container.appendChild(svg);
+
+      // Créer un wrapper
+      const wrapper = document.createElement('div');
+      wrapper.id = 'dungeon-wrapper-fallback';
+      wrapper.style.width = '100%';
+      wrapper.style.height = '100%';
+      wrapper.style.display = 'flex';
+      wrapper.style.justifyContent = 'center';
+      wrapper.style.alignItems = 'center';
+      wrapper.style.minHeight = '400px';
+      wrapper.style.flexDirection = 'column';
+      wrapper.style.gap = '1rem';
+      wrapper.style.color = '#888';
+      wrapper.style.textAlign = 'center';
+      wrapper.innerHTML = `
+        <span style="font-size: 3rem;">⚠️</span>
+        <p>Donjon de secours généré</p>
+        <p style="font-size: 0.8rem; color: #555;">Le générateur principal n'a pas pu s'initialiser</p>
+        <button onclick="window.location.reload()" style="
+          padding: 0.5rem 1.5rem;
+          background: #6c5ce7;
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 1rem;
+        ">🔄 Recharger</button>
+      `;
+      container.appendChild(wrapper);
+
+      console.log('✅ Donjon de secours créé');
+
+    } catch (error) {
+      console.error('❌ Erreur lors de la création du donjon de secours:', error);
+    }
+  }, [safeCleanup]);
 
   // Effet principal d'initialisation
   useEffect(() => {
@@ -151,18 +255,30 @@ const DungeonViewer = ({
     // Attendre que le DOM soit complètement chargé
     const startInit = () => {
       console.log('🚀 Démarrage de l\'initialisation');
-      initGenerator();
+      // Attendre un peu pour que React ait fini de monter
+      setTimeout(initGenerator, 300);
     };
 
     if (document.readyState === 'complete') {
-      setTimeout(startInit, 200);
+      startInit();
     } else {
       window.addEventListener('load', startInit);
     }
 
+    // Forcer l'initialisation après 5 secondes si elle n'a pas démarré
+    forceInitTimeoutRef.current = setTimeout(() => {
+      if (!isLoaded && !initError && isMountedRef.current) {
+        console.log('⏰ Timeout: Forçage de l\'initialisation');
+        initGenerator();
+      }
+    }, 5000);
+
     return () => {
       isMountedRef.current = false;
       window.removeEventListener('load', startInit);
+      if (forceInitTimeoutRef.current) {
+        clearTimeout(forceInitTimeoutRef.current);
+      }
       
       if (cleanupRef.current) {
         safeCleanup(cleanupRef.current);
@@ -178,6 +294,42 @@ const DungeonViewer = ({
       initGenerator();
     }
   }, [externalIsLoaded, isLoaded, initError, initAttempts, initGenerator]);
+
+  // Effet de diagnostic continu
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!isLoaded && isMountedRef.current) {
+        const container = containerRef.current;
+        if (container && container.children.length === 0) {
+          console.warn('⚠️ Le conteneur est toujours vide après 3 secondes');
+          // Réessayer l'initialisation
+          if (initAttempts < 10) {
+            initGenerator();
+          }
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isLoaded, initAttempts, initGenerator]);
+
+  // Exposer les méthodes de diagnostic sur la fenêtre
+  useEffect(() => {
+    window.__dungeonDiagnostic = {
+      container: containerRef.current,
+      isLoaded,
+      initError,
+      initAttempts,
+      generator: generatorRef.current,
+      retry: initGenerator,
+      cleanup: () => safeCleanup(containerRef.current),
+      log: logDiagnostic
+    };
+    
+    return () => {
+      delete window.__dungeonDiagnostic;
+    };
+  }, [containerRef, isLoaded, initError, initAttempts, initGenerator, safeCleanup, logDiagnostic]);
 
   return (
     <div 
@@ -206,7 +358,7 @@ const DungeonViewer = ({
           <span style={{ fontSize: '4rem', display: 'block', marginBottom: '1rem' }}>🏗️</span>
           <p>Chargement du générateur...</p>
           <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: '#444' }}>
-            Tentative {initAttempts + 1}/10
+            Tentative {Math.min(initAttempts + 1, 10)}/10
           </p>
           <div style={{ 
             marginTop: '1rem',
@@ -219,7 +371,7 @@ const DungeonViewer = ({
             overflow: 'hidden'
           }}>
             <div style={{
-              width: `${(initAttempts / 10) * 100}%`,
+              width: `${Math.min((initAttempts / 10) * 100, 100)}%`,
               height: '100%',
               background: 'linear-gradient(90deg, #f7971e, #ffd200)',
               borderRadius: '2px',
