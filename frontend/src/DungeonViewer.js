@@ -1,15 +1,15 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, forwardRef } from 'react';
 
 /**
  * DungeonViewer - Composant dédié au rendu du donjon
  * Version avec isolation totale pour éviter les conflits DOM avec React
  */
-const DungeonViewer = ({ 
+const DungeonViewer = forwardRef(({ 
   onInstanceReady, 
   onStatus, 
   isLoaded: externalIsLoaded,
   isLoading: externalIsLoading 
-}) => {
+}, ref) => {
   const containerRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [initError, setInitError] = useState(null);
@@ -21,6 +21,28 @@ const DungeonViewer = ({
   const forceInitTimeoutRef = useRef(null);
   const wrapperRef = useRef(null);
 
+  // Exposer la ref au parent
+  React.useImperativeHandle(ref, () => ({
+    container: containerRef.current,
+    wrapper: wrapperRef.current,
+    generator: generatorRef.current,
+    isLoaded,
+    initError,
+    retry: () => {
+      setInitAttempts(0);
+      setInitError(null);
+      initGenerator();
+    },
+    cleanup: safeCleanup,
+    getSVG: () => {
+      const wrapper = wrapperRef.current;
+      if (wrapper) {
+        return wrapper.querySelector('svg');
+      }
+      return null;
+    }
+  }));
+
   // Fonction de nettoyage sécurisée
   const safeCleanup = useCallback(() => {
     const container = containerRef.current;
@@ -30,7 +52,6 @@ const DungeonViewer = ({
       // Nettoyer le générateur
       if (generatorRef.current) {
         try {
-          // Essayer de nettoyer le SVG
           if (generatorRef.current.svg && generatorRef.current.svg.parentNode) {
             try {
               generatorRef.current.svg.parentNode.removeChild(generatorRef.current.svg);
@@ -54,12 +75,10 @@ const DungeonViewer = ({
         wrapperRef.current = null;
       }
       
-      // Nettoyer le conteneur - méthode alternative
+      // Nettoyer le conteneur
       try {
-        // Utiliser innerHTML pour un nettoyage complet
         container.innerHTML = '';
       } catch (e) {
-        // Si innerHTML échoue, supprimer les enfants un par un
         while (container.firstChild) {
           try {
             container.removeChild(container.firstChild);
@@ -102,7 +121,7 @@ const DungeonViewer = ({
       // Nettoyer le conteneur
       safeCleanup();
 
-      // Créer un wrapper - utiliser un élément simple
+      // Créer un wrapper
       const wrapper = document.createElement('div');
       wrapper.id = 'dungeon-wrapper';
       wrapper.style.width = '100%';
@@ -113,7 +132,6 @@ const DungeonViewer = ({
       wrapper.style.alignItems = 'center';
       wrapper.style.position = 'relative';
       
-      // Ajouter le wrapper au conteneur
       container.appendChild(wrapper);
       wrapperRef.current = wrapper;
 
@@ -134,7 +152,6 @@ const DungeonViewer = ({
         ]
       });
 
-      // Vérifier l'instance
       if (!instance) {
         throw new Error('L\'instance DungeonGenerator est null');
       }
@@ -157,13 +174,9 @@ const DungeonViewer = ({
       console.log('✅ DungeonGenerator initialisé avec succès');
       console.log('📐 Dimensions:', instance.width, 'x', instance.height);
 
-      // Vérifier que le SVG est bien dans le DOM
       setTimeout(() => {
         const svgInWrapper = wrapper.querySelector('svg');
         console.log('🔍 SVG dans le wrapper:', !!svgInWrapper);
-        if (svgInWrapper) {
-          console.log('📐 SVG dimensions:', svgInWrapper.getAttribute('width'), 'x', svgInWrapper.getAttribute('height'));
-        }
       }, 100);
 
     } catch (error) {
@@ -173,7 +186,6 @@ const DungeonViewer = ({
         onStatus(`❌ Erreur: ${error.message}`, 'error');
       }
       
-      // Réessayer si moins de 10 tentatives
       if (initAttempts < 10 && isMountedRef.current) {
         console.log(`🔄 Nouvelle tentative dans 1s (${initAttempts}/10)`);
         setTimeout(initGenerator, 1000);
@@ -190,10 +202,8 @@ const DungeonViewer = ({
     }
     initAttemptedRef.current = true;
 
-    // Attendre que le DOM soit complètement chargé
     const startInit = () => {
       console.log('🚀 Démarrage de l\'initialisation');
-      // Attendre un peu pour que React ait fini de monter
       setTimeout(initGenerator, 300);
     };
 
@@ -203,7 +213,6 @@ const DungeonViewer = ({
       window.addEventListener('load', startInit);
     }
 
-    // Forcer l'initialisation après 5 secondes si elle n'a pas démarré
     forceInitTimeoutRef.current = setTimeout(() => {
       if (!isLoaded && !initError && isMountedRef.current) {
         console.log('⏰ Timeout: Forçage de l\'initialisation');
@@ -217,8 +226,6 @@ const DungeonViewer = ({
       if (forceInitTimeoutRef.current) {
         clearTimeout(forceInitTimeoutRef.current);
       }
-      
-      // Nettoyer le conteneur
       safeCleanup();
     };
   }, [initGenerator, safeCleanup]);
@@ -229,35 +236,6 @@ const DungeonViewer = ({
       safeCleanup();
     };
   }, [safeCleanup]);
-
-  // Exposer les méthodes de diagnostic sur la fenêtre
-  useEffect(() => {
-    window.__dungeonDiagnostic = {
-      container: containerRef.current,
-      wrapper: wrapperRef.current,
-      isLoaded,
-      initError,
-      initAttempts,
-      generator: generatorRef.current,
-      retry: () => {
-        setInitAttempts(0);
-        setInitError(null);
-        initGenerator();
-      },
-      cleanup: safeCleanup,
-      getSVG: () => {
-        const wrapper = wrapperRef.current;
-        if (wrapper) {
-          return wrapper.querySelector('svg');
-        }
-        return null;
-      }
-    };
-    
-    return () => {
-      delete window.__dungeonDiagnostic;
-    };
-  }, [containerRef, isLoaded, initError, initAttempts, initGenerator, safeCleanup]);
 
   return (
     <div 
@@ -375,6 +353,8 @@ const DungeonViewer = ({
       )}
     </div>
   );
-};
+});
+
+DungeonViewer.displayName = 'DungeonViewer';
 
 export default DungeonViewer;
