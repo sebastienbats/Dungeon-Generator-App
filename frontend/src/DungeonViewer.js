@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 /**
  * DungeonViewer - Composant dédié au rendu du donjon
- * Version avec diagnostic amélioré pour résoudre les problèmes d'initialisation
+ * Isolé du reste de l'application pour éviter les conflits DOM
  */
 const DungeonViewer = ({ 
   onInstanceReady, 
@@ -12,7 +12,6 @@ const DungeonViewer = ({
 }) => {
   const containerRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [dungeonInstance, setDungeonInstance] = useState(null);
   const [initError, setInitError] = useState(null);
   const [initAttempts, setInitAttempts] = useState(0);
   const generatorRef = useRef(null);
@@ -30,7 +29,9 @@ const DungeonViewer = ({
           if (generatorRef.current.svg && generatorRef.current.svg.parentNode) {
             generatorRef.current.svg.parentNode.removeChild(generatorRef.current.svg);
           }
-        } catch (e) {}
+        } catch (e) {
+          // Ignorer les erreurs de nettoyage
+        }
         generatorRef.current = null;
       }
       
@@ -41,7 +42,9 @@ const DungeonViewer = ({
           break;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      // Ignorer les erreurs de nettoyage
+    }
   }, []);
 
   // Initialiser le générateur
@@ -66,7 +69,6 @@ const DungeonViewer = ({
       // Vérifier la bibliothèque
       if (typeof window.DungeonGenerator !== 'function') {
         console.warn('⏳ DungeonGenerator non disponible');
-        // Réessayer après un délai
         setTimeout(initGenerator, 500);
         return;
       }
@@ -108,7 +110,6 @@ const DungeonViewer = ({
       }
 
       generatorRef.current = instance;
-      setDungeonInstance(instance);
       setIsLoaded(true);
       setInitError(null);
       
